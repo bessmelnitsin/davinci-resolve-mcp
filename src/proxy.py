@@ -60,6 +60,7 @@ class ToolProxy:
     def _default_config(self) -> Dict[str, Any]:
         """Return default configuration."""
         return {
+            'mode': 'search_execute',  # 'search_execute' or 'full'
             'proxy_enabled': False,
             'max_tools': 40,
             'active_profile': 'full',
@@ -92,8 +93,8 @@ class ToolProxy:
                 }
             },
             'search_execute_mode': {
-                'enabled': False,
-                'description': 'Two-tool mode: search for tools, then execute'
+                'enabled': True,  # Changed to True by default
+                'description': 'Recommended: Use search_davinci_resolve and execute_davinci_resolve (4 tools total)'
             }
         }
 
