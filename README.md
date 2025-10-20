@@ -1,496 +1,714 @@
 # DaVinci Resolve MCP Server
 
-[![Version](https://img.shields.io/badge/version-1.3.8-blue.svg)](https://github.com/samuelgursky/davinci-resolve-mcp/releases)
+[![Version](https://img.shields.io/badge/version-2.0.0-blue.svg)](https://github.com/samuelgursky/davinci-resolve-mcp/releases)
+[![API Coverage](https://img.shields.io/badge/API%20Coverage-100%25-brightgreen.svg)](docs/API_COVERAGE.md)
 [![DaVinci Resolve](https://img.shields.io/badge/DaVinci%20Resolve-18.5+-darkred.svg)](https://www.blackmagicdesign.com/products/davinciresolve)
 [![Python](https://img.shields.io/badge/python-3.6+-green.svg)](https://www.python.org/downloads/)
-[![macOS](https://img.shields.io/badge/macOS-stable-brightgreen.svg)](https://www.apple.com/macos/)
-[![Windows](https://img.shields.io/badge/Windows-stable-brightgreen.svg)](https://www.microsoft.com/windows)
-[![License](https://img.shields.io/badge/license-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-A Model Context Protocol (MCP) server that connects AI coding assistants (Cursor, Claude Desktop) to DaVinci Resolve, enabling them to query and control DaVinci Resolve through natural language.
+> **🎉 100% API Coverage Achieved!** All 339 DaVinci Resolve API methods now available through MCP!
 
-## Features
+A comprehensive Model Context Protocol (MCP) server that provides complete programmatic control of DaVinci Resolve through AI assistants like Cursor and Claude Desktop. Control editing, color grading, media management, delivery, and AI-powered features through natural language.
 
-For a comprehensive list of implemented and planned features, see [docs/FEATURES.md](docs/FEATURES.md).
+---
 
-## Requirements
+## 🌟 What's New in v2.0
 
-- **macOS** or **Windows** with DaVinci Resolve installed
-- **Python 3.6+**
-- DaVinci Resolve running in the background
-- (Optional) Node.js/npm for some features
+**Complete API Coverage**: We've achieved **100% coverage** of the official DaVinci Resolve API (339/339 methods)!
 
-## Installation Guide
+### Phase 6 Additions (71% → 100%):
+- ✨ **98 new tools** across 10 comprehensive modules
+- 🎨 **Advanced Color Grading**: Color versions, take selector, CDL, group-level grading
+- 🤖 **AI-Powered Features**: Magic Mask, Smart Reframe, Stabilization, Auto-captions, Scene detection
+- 🎬 **Professional Workflows**: Compound clips, Fusion compositions, proxy media, media relinking
+- 📦 **Media Management**: Timeline import/export (AAF/EDL/XML/FCPXML), auto-sync audio
+- 🖼️ **Gallery & Stills**: Complete PowerGrade and still album management
+- ⚡ **Performance**: Cache control, optimized operations, batch processing
 
-For detailed installation instructions, please see [INSTALL.md](INSTALL.md). This guide covers:
-- Prerequisites and system requirements
-- Step-by-step installation process
-- Configuration details
-- Common troubleshooting steps
+**[View Complete API Coverage Documentation →](docs/API_COVERAGE.md)**
 
-## Platform Support
+---
 
-| Platform | Status | One-Step Install | Quick Start |
-|----------|--------|------------------|-------------|
-| macOS | ✅ Stable | `./install.sh` | `./run-now.sh` |
-| Windows | ✅ Stable | `install.bat` | `run-now.bat` |
-| Linux | ❌ Not supported | N/A | N/A |
+## 📋 Table of Contents
 
-## Quick Start Guide
+- [Features](#-features)
+- [Requirements](#-requirements)
+- [Quick Start](#-quick-start)
+- [Installation](#-installation)
+- [Configuration](#-configuration)
+- [Usage Examples](#-usage-examples)
+- [API Coverage](#-api-coverage)
+- [Architecture](#-architecture)
+- [Troubleshooting](#-troubleshooting)
+- [Development](#-development)
+- [License](#-license)
 
-### New One-Step Installation (Recommended)
+---
 
-The easiest way to get started is with our new unified installation script. This script does everything automatically:
+## ✨ Features
 
-- Clone the repository:
-   ```bash
-   git clone https://github.com/samuelgursky/davinci-resolve-mcp.git
-   cd davinci-resolve-mcp
-   ```
+### Complete DaVinci Resolve Control
 
-- Make sure DaVinci Resolve Studio is installed and running
+**Editing & Timeline** (100+ tools)
+- Timeline creation, manipulation, and export
+- Compound clips, Fusion clips, and nested timelines
+- Clip operations: trim, ripple delete, link/unlink
+- Timecode management and navigation
+- Generator and title insertion (standard, Fusion, OFX)
+- Marker and flag management
 
-- Run the installation script:
-   **macOS/Linux:**
-   ```bash
-   ./install.sh
-   ```
-   
-   **Windows:**
-   ```batch
-   install.bat
-   ```
+**Color Grading** (80+ tools)
+- Color versions for A/B comparison
+- Take selector operations
+- CDL (Color Decision List) operations
+- Color groups with pre/post-clip grading
+- Node graph access and manipulation
+- LUT management and export
+- PowerGrade album management
+- Gallery still operations
 
-This will:
-1. Automatically detect the correct paths on your system
-2. Create a Python virtual environment
-3. Install the MCP SDK from the official repository
-4. Set up environment variables
-5. Configure Cursor/Claude integration 
-6. Verify the installation is correct
-7. Optionally start the MCP server
+**AI & Machine Learning** (15+ tools)
+- ✨ Magic Mask creation and regeneration
+- ✨ Smart Reframe for social media
+- ✨ Stabilization
+- ✨ Auto-caption generation
+- ✨ Scene cut detection
+- ✨ Auto-sync audio (waveform analysis)
+- ✨ Audio transcription
 
-### Alternative Quick Start
+**Media Management** (60+ tools)
+- Media Pool folder operations
+- Timeline import (AAF, EDL, XML, FCPXML, DRT, ADL, OTIO)
+- Proxy media linking/unlinking
+- Media relinking for offline clips
+- Clip and folder movement
+- Metadata import/export
+- Stereo 3D clip creation
 
-You can also use the original quick start scripts:
+**Delivery & Rendering** (40+ tools)
+- Render preset management
+- Burn-in preset operations
+- Quick Export workflows
+- Format and codec selection
+- Custom render settings
+- Job queue management
 
-**Windows Users:**
+**Fusion Integration** (25+ tools)
+- Fusion composition management
+- Composition import/export
+- Node graph operations
+- Generator insertion
+
+**Project & Database** (30+ tools)
+- Project creation and management
+- Database switching
+- Cloud project support
+- Archive and restore operations
+- Preset management
+
+### Two Modes of Operation
+
+#### 1. **Search/Execute Mode** (Recommended for Cursor)
+Perfect for AI assistants with tool limits (like Cursor's 40-tool limit):
+- **4 core tools** provide access to all 339+ operations
+- Search tools by name, category, or description
+- Execute any tool dynamically
+- Optimized for natural language interaction
+
+#### 2. **Full Tool Mode** (For Claude Desktop)
+Direct access to all individual tools:
+- **339+ tools** exposed directly
+- Better for auto-completion
+- Ideal for clients without tool limits
+
+---
+
+## 📦 Requirements
+
+- **Operating System**: macOS or Windows (Linux not currently supported)
+- **DaVinci Resolve**: Version 18.5 or higher (Studio or Free)
+- **Python**: 3.6 or higher
+- **DaVinci Resolve**: Must be running for the MCP server to connect
+
+**Recommended AI Clients:**
+- [Cursor](https://cursor.sh/) - AI-powered code editor
+- [Claude Desktop](https://claude.ai/download) - Anthropic's desktop app
+
+---
+
+## 🚀 Quick Start
+
+### One-Step Installation (Recommended)
+
+**macOS:**
 ```bash
-run-now.bat
-``` 
+git clone https://github.com/samuelgursky/davinci-resolve-mcp.git
+cd davinci-resolve-mcp
+./install.sh
+```
 
-**macOS Users:**
+**Windows:**
+```batch
+git clone https://github.com/samuelgursky/davinci-resolve-mcp.git
+cd davinci-resolve-mcp
+install.bat
+```
+
+The installer will:
+1. ✅ Detect your DaVinci Resolve installation
+2. ✅ Create a Python virtual environment
+3. ✅ Install all dependencies (MCP SDK, FastMCP)
+4. ✅ Set up environment variables
+5. ✅ Configure Cursor/Claude integration
+6. ✅ Verify the installation
+7. ✅ Optionally start the server
+
+### Quick Launch
+
+After installation, use the quick start scripts:
+
+**macOS:**
 ```bash
-chmod +x run-now.sh
 ./run-now.sh
 ```
 
-## Configuration
-
-For configuration of DaVinci Resolve MCP with different AI assistant clients like Cursor or Claude, see the [config-templates](config-templates) directory.
-
-## Troubleshooting
-
-For detailed troubleshooting guidance, refer to the [INSTALL.md](INSTALL.md#troubleshooting) file which contains solutions to common issues.
-
-### Common Issues
-
-#### Path Resolution
-- The installation scripts now use more robust path resolution, fixing issues with `run-now.sh` looking for files in the wrong locations
-- Always let the scripts determine the correct paths based on their location
-
-#### DaVinci Resolve Detection
-- We've improved the process detection to reliably find DaVinci Resolve regardless of how it appears in the process list
-- Make sure DaVinci Resolve is running before starting the MCP server
-
-#### Environment Variables
-- Make sure all required environment variables are set correctly
-- Review the log file at `scripts/cursor_resolve_server.log` for troubleshooting
-
-### Windows
-- Make sure to use forward slashes (/) in configuration files
-- Python must be installed and paths configured in configs
-- DaVinci Resolve must be running before starting the server
-
-### macOS
-- Make sure scripts have execute permissions
-- Check Console.app for any Python-related errors
-- Verify environment variables are set correctly
-- DaVinci Resolve must be running before starting the server
-
-## Support
-
-For issues and feature requests, please use the GitHub issue tracker.
-
-## Launch Options
-
-After installation, you have several ways to start the server:
-
-### Client-Specific Launch Scripts
-
-The repository includes dedicated scripts for launching with specific clients:
-
-```bash
-# For Cursor integration (macOS)
-chmod +x scripts/mcp_resolve-cursor_start
-./scripts/mcp_resolve-cursor_start
-
-# For Claude Desktop integration (macOS)
-chmod +x scripts/mcp_resolve-claude_start
-./scripts/mcp_resolve-claude_start
+**Windows:**
+```batch
+run-now.bat
 ```
 
-These specialized scripts:
-- Set up the proper environment for each client
-- Verify DaVinci Resolve is running
-- Configure client-specific settings
-- Start the MCP server with appropriate parameters
+---
 
-### Pre-Launch Check
+## 📥 Installation
 
-Before connecting AI assistants, verify your environment is properly configured:
+### Prerequisites
 
-```bash
-# On macOS
-./scripts/check-resolve-ready.sh
+1. **Install DaVinci Resolve**
+   - Download from [Blackmagic Design](https://www.blackmagicdesign.com/products/davinciresolve)
+   - Install in the default location
 
-# On Windows
-./scripts/check-resolve-ready.bat
-```
+2. **Install Python 3.6+**
+   - macOS: `brew install python3` or download from [python.org](https://python.org)
+   - Windows: Download from [python.org](https://python.org)
 
-These scripts will:
-- Verify DaVinci Resolve is running (and offer to start it)
-- Check environment variables are properly set
-- Ensure the Python environment is configured correctly
-- Validate Cursor/Claude configuration
-- Optionally launch Cursor
+3. **Install an AI Assistant** (optional but recommended)
+   - [Cursor](https://cursor.sh/) - Recommended for developers
+   - [Claude Desktop](https://claude.ai/download) - Recommended for general use
 
-### Universal Launcher
+### Manual Installation
 
-For advanced users, our unified launcher provides full control over both Cursor and Claude Desktop servers:
+If you prefer manual setup or the automated installer doesn't work:
 
-```bash
-# Make the script executable (macOS only)
-chmod +x scripts/mcp_resolve_launcher.sh
-
-# Run in interactive mode
-./scripts/mcp_resolve_launcher.sh
-
-# Or use command line options
-./scripts/mcp_resolve_launcher.sh --start-cursor    # Start Cursor server (uses mcp_resolve-cursor_start)
-./scripts/mcp_resolve_launcher.sh --start-claude    # Start Claude Desktop server (uses mcp_resolve-claude_start)
-./scripts/mcp_resolve_launcher.sh --start-both      # Start both servers
-./scripts/mcp_resolve_launcher.sh --stop-all        # Stop all running servers
-./scripts/mcp_resolve_launcher.sh --status          # Show server status
-```
-
-Additional options:
-- Force mode (skip Resolve running check): `--force`
-- Project selection: `--project "Project Name"`
-
-## Full Installation
-
-For a complete manual installation:
-
-1. Clone this repository:
+1. **Clone the repository:**
    ```bash
    git clone https://github.com/samuelgursky/davinci-resolve-mcp.git
    cd davinci-resolve-mcp
    ```
 
-2. Create a Python virtual environment:
+2. **Create virtual environment:**
    ```bash
-   # Create virtual environment
    python -m venv venv
-   
-   # Activate it
-   # On macOS/Linux:
+
+   # Activate (macOS/Linux)
    source venv/bin/activate
-   # On Windows:
+
+   # Activate (Windows)
    venv\Scripts\activate
-   
-   # Install dependencies from requirements.txt
-   pip install -r requirements.txt
-   
-   # Alternatively, install MCP SDK directly
-   pip install git+https://github.com/modelcontextprotocol/python-sdk.git
    ```
 
-3. Set up DaVinci Resolve scripting environment variables:
+3. **Install dependencies:**
+   ```bash
+   pip install -r requirements.txt
+   ```
 
-   **For macOS**:
+4. **Set environment variables:**
+
+   **macOS:**
    ```bash
    export RESOLVE_SCRIPT_API="/Library/Application Support/Blackmagic Design/DaVinci Resolve/Developer/Scripting"
    export RESOLVE_SCRIPT_LIB="/Applications/DaVinci Resolve/DaVinci Resolve.app/Contents/Libraries/Fusion/fusionscript.so"
    export PYTHONPATH="$PYTHONPATH:$RESOLVE_SCRIPT_API/Modules/"
    ```
 
-   **For Windows**:
+   **Windows:**
    ```cmd
    set RESOLVE_SCRIPT_API=C:\ProgramData\Blackmagic Design\DaVinci Resolve\Support\Developer\Scripting
    set RESOLVE_SCRIPT_LIB=C:\Program Files\Blackmagic Design\DaVinci Resolve\fusionscript.dll
    set PYTHONPATH=%PYTHONPATH%;%RESOLVE_SCRIPT_API%\Modules
    ```
-   
-   Alternatively, run the pre-launch check script which will set these for you:
-   ```
-   # On macOS
+
+5. **Verify installation:**
+   ```bash
+   # macOS
    ./scripts/check-resolve-ready.sh
-   
-   # On Windows
-   ./scripts/check-resolve-ready.bat
+
+   # Windows
+   scripts\check-resolve-ready.bat
    ```
 
-4. Configure Cursor to use the server by creating a configuration file:
+---
 
-   **For macOS** (`~/.cursor/mcp.json`):
-   ```json
-   {
-     "mcpServers": {
-       "davinci-resolve": {
-         "name": "DaVinci Resolve MCP",
-         "command": "/path/to/your/venv/bin/python",
-         "args": [
-           "/path/to/your/davinci-resolve-mcp/src/main.py"
-         ]
-       }
-     }
-   }
-   ```
+## ⚙️ Configuration
 
-   **For Windows** (`%APPDATA%\Cursor\mcp.json`):
-   ```json
-   {
-     "mcpServers": {
-       "davinci-resolve": {
-         "name": "DaVinci Resolve MCP",
-         "command": "C:\\path\\to\\venv\\Scripts\\python.exe",
-         "args": ["C:\\path\\to\\davinci-resolve-mcp\\src\\main.py"]
-       }
-     }
-   }
-   ```
+### For Cursor
 
-5. Start the server using one of the client-specific scripts:
-   ```bash
-   # For Cursor
-   ./scripts/mcp_resolve-cursor_start
-   
-   # For Claude Desktop
-   ./scripts/mcp_resolve-claude_start
-   ```
+Create or edit `~/.cursor/mcp.json` (macOS) or `%APPDATA%\Cursor\mcp.json` (Windows):
 
-## Usage with AI Assistants
+```json
+{
+  "mcpServers": {
+    "davinci-resolve": {
+      "name": "DaVinci Resolve MCP",
+      "command": "/path/to/davinci-resolve-mcp/venv/bin/python",
+      "args": ["/path/to/davinci-resolve-mcp/src/main.py"],
+      "env": {
+        "RESOLVE_MCP_MODE": "search_execute"
+      }
+    }
+  }
+}
+```
 
-### Using with Cursor
+**Configuration Options:**
+- `RESOLVE_MCP_MODE`:
+  - `"search_execute"` (recommended) - Use 4-tool search/execute interface
+  - `"full"` - Expose all 339+ tools directly
 
-1. Start the Cursor server using the dedicated script:
-   ```bash
-   ./scripts/mcp_resolve-cursor_start
-   ```
-   Or use the universal launcher:
-   ```bash
-   ./scripts/mcp_resolve_launcher.sh --start-cursor
-   ```
+### For Claude Desktop
 
-2. Start Cursor and open a project.
+Create or edit `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS) or `%APPDATA%\Claude\claude_desktop_config.json` (Windows):
 
-3. In Cursor's AI chat, you can now interact with DaVinci Resolve. Try commands like:
-   - "What version of DaVinci Resolve is running?"
-   - "List all projects in DaVinci Resolve"
-   - "Create a new timeline called 'My Sequence'"
-   - "Add a marker at the current position"
+```json
+{
+  "mcpServers": {
+    "davinci-resolve": {
+      "command": "/path/to/davinci-resolve-mcp/venv/bin/python",
+      "args": ["/path/to/davinci-resolve-mcp/src/main.py"],
+      "env": {
+        "RESOLVE_MCP_MODE": "full"
+      }
+    }
+  }
+}
+```
 
-### Using with Claude Desktop
+**See [config-templates/](config-templates/) for more examples.**
 
-1. Create a `claude_desktop_config.json` file in your Claude Desktop configuration directory using the template in the `config-templates` directory.
+---
 
-2. Run the Claude Desktop server using the dedicated script:
-   ```bash
-   ./scripts/mcp_resolve-claude_start
-   ```
-   Or use the universal launcher:
-   ```bash
-   ./scripts/mcp_resolve_launcher.sh --start-claude
-   ```
+## 💡 Usage Examples
 
-3. In Claude Desktop, you can now interact with DaVinci Resolve using the same commands as with Cursor.
+### Basic Operations
 
-## Available Features
+**Get DaVinci Resolve Information:**
+```
+What version of DaVinci Resolve is running?
+```
 
-### General
-- Get DaVinci Resolve version
-- Get/switch current page (Edit, Color, Fusion, etc.)
+**Project Management:**
+```
+List all projects in DaVinci Resolve
+Create a new project called "Documentary Edit"
+Open the project named "Commercial 2024"
+```
 
-### Project Management
-- List available projects
-- Get current project name
-- Open project by name
-- Create new project
-- Save current project
+**Timeline Operations:**
+```
+Create a new timeline called "Main Sequence" at 24fps
+List all timelines in the current project
+Switch to timeline "Main Sequence"
+Add a marker at the current position with the note "Review this shot"
+```
 
-### Timeline Operations
-- List all timelines
-- Get current timeline info
-- Create new timeline
-- Switch to timeline by name
-- Add marker to timeline
+### Advanced Workflows
 
-### Media Pool Operations
-- List media pool clips
-- Import media file
-- Create media bin
-- Add clip to timeline
+**Color Grading:**
+```
+Create a color version called "Hero Look" for the current clip
+Apply a CDL with slope 1.2, offset 0.01, and saturation 1.1
+Create a color group called "Day Exteriors"
+Export a 33-point LUT from the current clip to /exports/hero_look.cube
+```
 
-## Windows Support Notes
+**AI-Powered Features:**
+```
+Create a Magic Mask for the person in the current clip
+Apply Smart Reframe to optimize for Instagram (9:16)
+Stabilize the current clip
+Generate auto-captions from the timeline audio
+Detect scene cuts in the timeline
+```
 
-Windows support is stable in v1.3.3 and should not require additional troubleshooting:
-- Ensure DaVinci Resolve is installed in the default location
-- Environment variables are properly set as described above
-- Windows paths may require adjustment based on your installation
-- For issues, please check the logs in the `logs/` directory
+**Media Management:**
+```
+Import timeline from /imports/sequence.xml
+Relink all offline clips to the folder /media/new_location/
+Auto-sync audio for clips A001 through A010
+Create a stereo 3D clip from left_eye.mov and right_eye.mov
+Move clips to the B-Roll folder
+```
 
-## Troubleshooting
+**Editing:**
+```
+Create a compound clip from clips 1, 2, and 3 on video track 1
+Delete clips 5 and 6 with ripple delete
+Link clips 1, 2, and 3 on video track 1
+Duplicate the current timeline as "Main Sequence - Backup"
+```
 
-### DaVinci Resolve Connection
-Make sure DaVinci Resolve is running before starting the server. If the server can't connect to Resolve, check that:
+**Fusion & VFX:**
+```
+Add a Fusion composition to the current clip
+Import Fusion comp from /comps/vfx_shot.comp
+Export the Fusion composition to /exports/my_comp.comp
+Insert a Fusion generator called "3D Text" at the playhead
+```
 
-1. Your environment variables are set correctly
-2. You have the correct paths for your DaVinci Resolve installation
-3. You have restarted your terminal after setting environment variables
+**Delivery:**
+```
+Export the timeline to AAF format at /exports/sequence.aaf
+Set the render format to QuickTime and codec to ProRes 422 HQ
+Add the current timeline to the render queue
+Start rendering all jobs
+```
 
-## Project Structure
+### Batch Operations
+
+**Process Multiple Clips:**
+```
+For all clips in the Media Pool folder "Interviews":
+1. Apply the same grade from clip "A001"
+2. Add a marker at 5 seconds with "Check audio levels"
+3. Enable auto-sync audio
+```
+
+**Timeline Automation:**
+```
+Create 5 timelines named "Episode 1" through "Episode 5" at 24fps
+For each timeline, import the corresponding XML from /imports/
+```
+
+---
+
+## 📊 API Coverage
+
+We provide **100% coverage** of the official DaVinci Resolve API (339/339 methods):
+
+### Coverage by Object
+
+| Object | Total Methods | Implemented | Coverage |
+|--------|---------------|-------------|----------|
+| **Resolve** | 21 | 21 | 100% ✅ |
+| **ProjectManager** | 25 | 25 | 100% ✅ |
+| **Project** | 38 | 38 | 100% ✅ |
+| **MediaStorage** | 7 | 7 | 100% ✅ |
+| **MediaPool** | 24 | 24 | 100% ✅ |
+| **MediaPoolItem** | 23 | 23 | 100% ✅ |
+| **Folder** | 7 | 7 | 100% ✅ |
+| **Timeline** | 42 | 42 | 100% ✅ |
+| **TimelineItem** | 55 | 55 | 100% ✅ |
+| **Gallery** | 8 | 8 | 100% ✅ |
+| **GalleryStillAlbum** | 6 | 6 | 100% ✅ |
+| **Graph** | 11 | 11 | 100% ✅ |
+| **ColorGroup** | 5 | 5 | 100% ✅ |
+| **TOTAL** | **339** | **339** | **100%** ✅ |
+
+### Tools by Category
+
+- **Core & Project**: 30+ tools
+- **Timeline & Editing**: 100+ tools
+- **Color Grading**: 80+ tools
+- **Media Management**: 60+ tools
+- **Delivery & Rendering**: 40+ tools
+- **Fusion Integration**: 25+ tools
+- **Gallery & Stills**: 20+ tools
+- **AI/ML Features**: 15+ tools
+- **Advanced Operations**: 50+ tools
+
+**[View Detailed API Coverage →](docs/API_COVERAGE.md)**
+
+---
+
+## 🏗️ Architecture
+
+### Project Structure
 
 ```
 davinci-resolve-mcp/
-├── README.md               # This file
-├── docs/                   # Documentation
-│   ├── FEATURES.md         # Feature list and status
-│   ├── CHANGELOG.md        # Version history
-│   ├── VERSION.md          # Version information
-│   ├── TOOLS_README.md     # Tools documentation
-│   ├── PROJECT_MCP_SETUP.md # Project setup guide
-│   └── COMMIT_MESSAGE.txt  # Latest commit information
-├── config-templates/       # Configuration templates
-│   ├── sample_config.json  # Example configuration
-│   ├── cursor-mcp-example.json # Cursor config example
-│   └── mcp-project-template.json # MCP project template
-├── scripts/                # Utility scripts
-│   ├── tests/              # Test scripts
-│   │   ├── benchmark_server.py # Performance tests
-│   │   ├── test_improvements.py # Test scripts
-│   │   ├── test_custom_timeline.py # Timeline tests
-│   │   ├── create_test_timeline.py # Create test timeline
-│   │   ├── test-after-restart.sh # Test after restart (Unix)
-│   │   └── test-after-restart.bat # Test after restart (Windows)
-│   ├── batch_automation.py # Batch automation script
-│   ├── restart-server.sh   # Server restart script (Unix)
-│   ├── restart-server.bat  # Server restart script (Windows)
-│   ├── run-now.sh          # Quick start script (Unix)
-│   └── run-now.bat         # Quick start script (Windows)
-├── resolve_mcp_server.py   # Main server implementation
-├── src/                    # Source code
-│   ├── api/                # API implementation
-│   ├── features/           # Feature modules
-│   └── utils/              # Utility functions
-├── logs/                   # Log files
-├── tools/                  # Development tools
-├── assets/                 # Project assets
-└── examples/               # Example code
+├── src/
+│   ├── main.py                    # Entry point
+│   ├── resolve_mcp_server.py      # Core MCP server
+│   ├── proxy.py                   # Tool proxy layer
+│   └── tools/                     # Tool modules (339+ tools)
+│       ├── __init__.py            # Tool registry
+│       ├── search_execute.py      # Search/execute mode (4 tools)
+│       │
+│       ├── core.py                # Core operations
+│       ├── project.py             # Project management
+│       ├── project_advanced.py    # Advanced project ops
+│       ├── project_complete.py    # Project completions
+│       │
+│       ├── timeline.py            # Timeline basics
+│       ├── timeline_advanced.py   # Advanced timeline
+│       ├── timeline_advanced2.py  # AI/ML timeline features
+│       ├── timeline_complete.py   # Timeline completions
+│       ├── timeline_operations.py # Timeline operations
+│       │
+│       ├── timelineitem_advanced.py  # Advanced clip ops
+│       ├── timelineitem_advanced2.py # AI/ML clip features
+│       ├── timeline_item_complete.py # Clip completions
+│       │
+│       ├── media.py               # Media Pool basics
+│       ├── mediapool_advanced.py  # Advanced media ops
+│       ├── mediapool_complete.py  # Media completions
+│       ├── mediapool_selection.py # Selection & metadata
+│       ├── mediapoolitem_advanced.py   # Clip properties
+│       ├── mediapoolitem_complete.py   # Clip completions
+│       ├── folder_navigation.py   # Folder operations
+│       │
+│       ├── color.py               # Color grading
+│       ├── colorgroup_operations.py    # Color groups
+│       ├── colorgroup_complete.py      # Group completions
+│       │
+│       ├── delivery.py            # Render basics
+│       ├── render_settings.py     # Render configuration
+│       ├── render_advanced.py     # Advanced rendering
+│       │
+│       ├── fusion.py              # Fusion operations
+│       ├── fairlight.py           # Audio operations
+│       ├── media_storage.py       # Media storage
+│       │
+│       ├── gallery.py             # Gallery basics
+│       ├── gallery_advanced.py    # PowerGrades
+│       ├── gallerystillalbum_complete.py  # Still albums
+│       │
+│       ├── graph.py               # Node graphs
+│       ├── cache.py               # Cache management
+│       ├── advanced.py            # Advanced features
+│       │
+│       ├── resolve_complete.py    # Resolve completions
+│       ├── complete_api_coverage.py    # Remaining APIs
+│       └── phase6_final.py        # Final completions
+│
+├── config-templates/              # Configuration examples
+├── scripts/                       # Utility scripts
+│   ├── mcp_resolve-cursor_start   # Cursor launcher
+│   ├── mcp_resolve-claude_start   # Claude launcher
+│   ├── mcp_resolve_launcher.sh    # Universal launcher
+│   ├── check-resolve-ready.sh     # Pre-launch check
+│   └── tests/                     # Test scripts
+│
+├── docs/                          # Documentation
+│   ├── API_COVERAGE.md            # Complete API coverage
+│   ├── API_PHASE4_SUMMARY.md      # Phase 4 details
+│   ├── API_PHASE5_SUMMARY.md      # Phase 5 details
+│   ├── FEATURES.md                # Feature list
+│   ├── CHANGELOG.md               # Version history
+│   └── TOOLS_README.md            # Tool documentation
+│
+├── install.sh / install.bat       # One-step installers
+├── run-now.sh / run-now.bat       # Quick launchers
+├── requirements.txt               # Python dependencies
+└── README.md                      # This file
 ```
 
-## License
+### Key Components
 
-MIT
+**Tool Proxy Layer** (`src/proxy.py`)
+- Manages tool registration and execution
+- Provides search/execute interface
+- Handles parameter validation
+- Supports both search_execute and full modes
 
-## Acknowledgments
+**Tool Modules** (`src/tools/*.py`)
+- Organized by functional area (editing, color, media, etc.)
+- Each module provides `register_tools(mcp)` function
+- Comprehensive error handling and logging
+- Type-hinted for better IDE support
 
-- Blackmagic Design for DaVinci Resolve and its API
-- The MCP protocol team for enabling AI assistant integration
+**Search/Execute Mode** (`src/tools/search_execute.py`)
+- 4 core tools: search, execute, get_categories, list_tools
+- Optimized for AI assistants with tool limits
+- Natural language tool discovery
 
-## Author
+**Full Tool Mode**
+- All 339+ tools exposed directly
+- Better for auto-completion
+- Ideal for unlimited tool clients
 
-Samuel Gursky (samgursky@gmail.com)
-- GitHub: [github.com/samuelgursky](https://github.com/samuelgursky)
+---
 
-## Future Plans
+## 🔧 Troubleshooting
 
-- Windows and Linux support
-- Additional DaVinci Resolve features
-- Support for Claude Desktop
+### Common Issues
 
-## Development
+**"Cannot connect to DaVinci Resolve"**
+- ✅ Ensure DaVinci Resolve is running
+- ✅ Check environment variables are set correctly
+- ✅ Verify you're using the correct paths for your installation
+- ✅ Try restarting both DaVinci Resolve and the MCP server
 
-If you'd like to contribute, please check the feature checklist in the repo and pick an unimplemented feature to work on. The code is structured with clear sections for different areas of functionality.
+**"Client closed" or "Server disconnected"**
+- ✅ Check that paths in configuration files are absolute, not relative
+- ✅ Verify Python virtual environment is activated
+- ✅ Ensure all dependencies are installed: `pip install -r requirements.txt`
+- ✅ Check logs in `scripts/cursor_resolve_server.log`
 
-## License
+**"Tool not found" or "Unknown tool"**
+- ✅ In search_execute mode, use the search tool first to find available tools
+- ✅ Tool names are case-sensitive
+- ✅ Check `RESOLVE_MCP_MODE` environment variable is set correctly
 
-MIT
+**Performance Issues**
+- ✅ Use search_execute mode for better performance with many tools
+- ✅ Close unnecessary timelines and projects in DaVinci Resolve
+- ✅ Check DaVinci Resolve isn't rendering in the background
 
-## Acknowledgments
+### Platform-Specific Issues
 
-- Blackmagic Design for DaVinci Resolve and its API
-- The MCP protocol team for enabling AI assistant integration
+**macOS:**
+- Make sure scripts have execute permissions: `chmod +x *.sh`
+- Check Console.app for Python-related errors
+- Verify DaVinci Resolve.app is in /Applications
 
-## Project Structure
+**Windows:**
+- Use forward slashes (/) in configuration file paths
+- Run Command Prompt as Administrator if permission errors occur
+- Ensure Python is in your PATH
 
-After cleanup, the project has the following structure:
+### Getting Help
 
-- `resolve_mcp_server.py` - The main MCP server implementation
-- `run-now.sh` - Quick start script that handles setup and runs the server
-- `setup.sh` - Complete setup script for installation
-- `check-resolve-ready.sh` - Pre-launch check to verify DaVinci Resolve is ready
-- `start-server.sh` - Script to start the server
-- `run-server.sh` - Simplified script to run the server directly
+1. **Check the logs**: `scripts/cursor_resolve_server.log`
+2. **Run diagnostics**: `./scripts/check-resolve-ready.sh` (macOS) or `scripts\check-resolve-ready.bat` (Windows)
+3. **Review documentation**: [docs/](docs/)
+4. **Search existing issues**: [GitHub Issues](https://github.com/samuelgursky/davinci-resolve-mcp/issues)
+5. **Create a new issue**: Include logs, OS version, DaVinci Resolve version, and configuration
 
-**Key Directories:**
-- `src/` - Source code and modules
-- `assets/` - Project assets and resources
-- `logs/` - Log files directory
-- `scripts/` - Helper scripts
+---
 
-When developing, it's recommended to use `./run-now.sh` which sets up the environment and launches the server in one step. 
+## 👨‍💻 Development
 
-## Changelog
+### Running Tests
 
-See [docs/CHANGELOG.md](docs/CHANGELOG.md) for a detailed history of changes. 
+```bash
+# Run test suite
+python scripts/tests/test_improvements.py
 
-### Cursor-Specific Setup
+# Run benchmarks
+python scripts/tests/benchmark_server.py
 
-When integrating with Cursor, follow these specific steps:
+# Create test timeline
+python scripts/tests/create_test_timeline.py
+```
 
-1. Make sure DaVinci Resolve is running before starting Cursor
+### Adding New Tools
 
-2. Install required dependencies:
-   ```bash
-   # From the davinci-resolve-mcp directory:
-   pip install -r requirements.txt
-   ```
-   Note: This will install the MCP package and other dependencies automatically.
+1. Create or edit a tool module in `src/tools/`
+2. Implement your tool functions with proper docstrings
+3. Add registration in the module's `register_tools(mcp)` function
+4. Update `src/tools/__init__.py` to include your module
+5. Test your tool using the search/execute interface
 
-3. Set up the MCP server configuration in Cursor:
-   
-   Create or edit `~/.cursor/mcp.json` on macOS (or `%USERPROFILE%\.cursor\mcp.json` on Windows):
-   
-   ```json
-   {
-     "mcpServers": {
-       "davinci-resolve": {
-         "name": "DaVinci Resolve MCP",
-         "command": "/path/to/your/venv/bin/python",
-         "args": [
-           "/path/to/your/davinci-resolve-mcp/src/main.py"
-         ]
-       }
-     }
-   }
-   ```
-   
-   **Important Notes:**
-   - Use `main.py` as the entry point (not `resolve_mcp_server.py`)
-   - Use absolute paths in the configuration
+**Example:**
+```python
+# src/tools/my_feature.py
+import logging
 
-4. Common issues:
-   - "Client closed" error: Check that paths are correct in mcp.json and dependencies are installed
-   - Connection problems: Make sure DaVinci Resolve is running before starting Cursor
-   - Environment variables: The main.py script will handle setting environment variables
+logger = logging.getLogger("davinci-resolve-mcp.tools.my_feature")
+
+def my_new_tool(param1: str, param2: int) -> dict:
+    """
+    Description of what this tool does.
+
+    Args:
+        param1: Description of param1
+        param2: Description of param2
+
+    Returns:
+        Result dictionary
+
+    Example:
+        >>> my_new_tool("test", 42)
+        {"success": True, "result": "..."}
+    """
+    try:
+        # Implementation here
+        return {"success": True, "result": "..."}
+    except Exception as e:
+        logger.error(f"Error in my_new_tool: {e}")
+        return {"success": False, "error": str(e)}
+
+def register_tools(mcp):
+    """Register tools with MCP server."""
+    from ..proxy import get_proxy
+
+    proxy = get_proxy()
+    proxy.register_tool(
+        "my_new_tool",
+        my_new_tool,
+        "category",
+        "Short description",
+        {
+            "param1": {"type": "string", "description": "Param1 description"},
+            "param2": {"type": "integer", "description": "Param2 description"}
+        }
+    )
+    return 1
+```
+
+### Code Style
+
+- Follow PEP 8 style guidelines
+- Use type hints for function parameters and returns
+- Include comprehensive docstrings with examples
+- Add error handling and logging
+- Test with both DaVinci Resolve Studio and Free versions
+
+---
+
+## 📄 License
+
+MIT License - see [LICENSE](LICENSE) for details
+
+---
+
+## 🙏 Acknowledgments
+
+- **Blackmagic Design** for DaVinci Resolve and its comprehensive API
+- **Anthropic** for the Model Context Protocol and Claude
+- **The MCP Community** for feedback and contributions
+- **FastMCP Team** for the excellent Python SDK
+
+---
+
+## 📬 Contact & Support
+
+**Author**: Samuel Gursky
+**Email**: samgursky@gmail.com
+**GitHub**: [@samuelgursky](https://github.com/samuelgursky)
+
+**Project**: [github.com/samuelgursky/davinci-resolve-mcp](https://github.com/samuelgursky/davinci-resolve-mcp)
+
+---
+
+## 🗺️ Roadmap
+
+- ✅ **Phase 1-5**: Core API coverage (71%)
+- ✅ **Phase 6**: 100% API coverage (COMPLETE!)
+- 🔄 **Future**: Enhanced AI integrations
+- 🔄 **Future**: Web-based control interface
+- 🔄 **Future**: Plugin ecosystem
+- 🔄 **Future**: Advanced batch automation
+- 🔄 **Future**: Real-time collaboration features
+
+---
+
+## ⭐ Star History
+
+If you find this project useful, please consider giving it a star on GitHub!
+
+---
+
+**Built with ❤️ for the DaVinci Resolve and AI communities**
+
+*Last updated: 2025-10-20*
