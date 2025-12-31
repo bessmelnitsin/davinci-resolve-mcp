@@ -30,11 +30,11 @@ For detailed installation instructions, please see [INSTALL.md](INSTALL.md). Thi
 
 ## Platform Support
 
-| Platform | Status | One-Step Install | Quick Start |
-|----------|--------|------------------|-------------|
-| macOS | ✅ Stable | `./install.sh` | `./run-now.sh` |
-| Windows | ✅ Stable | `install.bat` | `run-now.bat` |
-| Linux | ❌ Not supported | N/A | N/A |
+| Platform | Status | Quick Start |
+|----------|--------|-------------|
+| macOS | ✅ Stable | `./run-now.sh` |
+| Windows | ✅ Stable | `run-now.bat` |
+| Linux | ❌ Not supported | N/A |
 
 ## Quick Start Guide
 
@@ -58,7 +58,7 @@ The easiest way to get started is with our new unified installation script. This
    
    **Windows:**
    ```batch
-   install.bat
+   run-now.bat
    ```
 
 This will:
@@ -335,6 +335,8 @@ For a complete manual installation:
 - Create new timeline
 - Switch to timeline by name
 - Add marker to timeline
+- Append clips to timeline (New)
+- Create timeline from clip list (New)
 
 ### Media Pool Operations
 - List media pool clips
@@ -365,38 +367,22 @@ Make sure DaVinci Resolve is running before starting the server. If the server c
 davinci-resolve-mcp/
 ├── README.md               # This file
 ├── docs/                   # Documentation
-│   ├── FEATURES.md         # Feature list and status
-│   ├── CHANGELOG.md        # Version history
-│   ├── VERSION.md          # Version information
-│   ├── TOOLS_README.md     # Tools documentation
-│   ├── PROJECT_MCP_SETUP.md # Project setup guide
-│   └── COMMIT_MESSAGE.txt  # Latest commit information
 ├── config-templates/       # Configuration templates
-│   ├── sample_config.json  # Example configuration
-│   ├── cursor-mcp-example.json # Cursor config example
-│   └── mcp-project-template.json # MCP project template
 ├── scripts/                # Utility scripts
-│   ├── tests/              # Test scripts
-│   │   ├── benchmark_server.py # Performance tests
-│   │   ├── test_improvements.py # Test scripts
-│   │   ├── test_custom_timeline.py # Timeline tests
-│   │   ├── create_test_timeline.py # Create test timeline
-│   │   ├── test-after-restart.sh # Test after restart (Unix)
-│   │   └── test-after-restart.bat # Test after restart (Windows)
-│   ├── batch_automation.py # Batch automation script
-│   ├── restart-server.sh   # Server restart script (Unix)
-│   ├── restart-server.bat  # Server restart script (Windows)
-│   ├── run-now.sh          # Quick start script (Unix)
-│   └── run-now.bat         # Quick start script (Windows)
-├── resolve_mcp_server.py   # Main server implementation
+│   ├── debug_media_direct.py # Media Pool debugger
+│   ├── diag_connection.py    # Connection diagnostic
+│   └── run-now.bat         # Quick start (Windows)
+├── examples/               # Example usage
+│   ├── basic_client.py     # Simple connection test
+│   └── timeline_demo.py    # Timeline creation demo
+├── tests/                  # Verification scripts
+│   ├── test_timeline.py    # Feature tests
+│   └── test_connection_visual.py # Visual proof
 ├── src/                    # Source code
 │   ├── api/                # API implementation
 │   ├── features/           # Feature modules
 │   └── utils/              # Utility functions
-├── logs/                   # Log files
-├── tools/                  # Development tools
-├── assets/                 # Project assets
-└── examples/               # Example code
+└── archive/                # Old logs and unused files
 ```
 
 ## License

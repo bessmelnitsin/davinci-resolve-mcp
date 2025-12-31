@@ -26,22 +26,26 @@ def list_media_pool_clips(resolve) -> List[Dict[str, Any]]:
     if not media_pool:
         return [{"error": "Failed to get Media Pool"}]
     
-    # Get the root folder and all its clips
-    root_folder = media_pool.GetRootFolder()
-    if not root_folder:
-        return [{"error": "Failed to get Root Folder"}]
-    
-    clips = root_folder.GetClipList()
+    # Get all clips recursively
+    # We use the helper function defined at the end of the file
+    # (function resolution happens at potential call time, so this is safe)
+    try:
+        clips = get_all_media_pool_clips(media_pool)
+    except NameError:
+        # Fallback if function is not found (safe guard)
+        root_folder = media_pool.GetRootFolder()
+        clips = root_folder.GetClipList()
     
     # Format clip info
     clip_info = []
     for clip in clips:
         if clip:
+            properties = clip.GetClipProperty()
             clip_info.append({
                 "name": clip.GetName(),
-                "type": clip.GetClipProperty()["Type"],
-                "duration": clip.GetClipProperty()["Duration"],
-                "fps": clip.GetClipProperty().get("FPS", "Unknown")
+                "type": properties.get("Type", "Unknown"),
+                "duration": properties.get("Duration", "Unknown"),
+                "fps": properties.get("FPS", "Unknown")
             })
     
     return clip_info if clip_info else [{"info": "No clips found in the media pool"}]
@@ -926,4 +930,150 @@ def create_sub_clip(resolve, clip_name: str, start_frame: int, end_frame: int,
         except:
             pass
         
-        return f"Error creating subclip: {str(e)}" 
+        return f"Error creating subclip: {str(e)}"
+
+def get_all_media_pool_clips(media_pool):
+    """Get all clips from media pool recursively."""
+    import logging
+    logger = logging.getLogger("davinci-resolve-mcp.media")
+    
+    clips = []
+    root_folder = media_pool.GetRootFolder()
+    if not root_folder:
+        logger.error("Failed to get root folder")
+        return []
+    
+    def process_folder(folder):
+        try:
+            folder_name = folder.GetName()
+            logger.info(f"Scanning folder: {folder_name}")
+            
+            folder_clips = folder.GetClipList()
+            if folder_clips:
+                logger.info(f"Found {len(folder_clips)} clips in {folder_name}")
+                clips.extend(folder_clips)
+            
+            sub_folders = folder.GetSubFolderList()
+            if sub_folders:
+                for sub_folder in sub_folders:
+                    process_folder(sub_folder)
+        except Exception as e:
+            logger.error(f"Error processing folder: {str(e)}")
+    
+    process_folder(root_folder)
+    return clips
+
+def append_clips_to_timeline(resolve, clip_names: list, timeline_name: str = None) -> str:
+    """Append a list of clips (by name) to the timeline."""
+    if not resolve:
+        return 'Error: Not connected to DaVinci Resolve'
+    
+    if not clip_names:
+        return 'Error: No clips provided'
+    
+    project_manager = resolve.GetProjectManager()
+    if not project_manager:
+        return 'Error: Failed to get Project Manager'
+    
+    current_project = project_manager.GetCurrentProject()
+    if not current_project:
+        return 'Error: No project currently open'
+        
+    media_pool = current_project.GetMediaPool()
+    if not media_pool:
+        return 'Error: Failed to get Media Pool'
+    
+    # Retrieve all clips to find matches
+    all_clips = get_all_media_pool_clips(media_pool)
+    target_clips = []
+    missing_clips = []
+    
+    for name in clip_names:
+        found = False
+        for clip in all_clips:
+            if clip.GetName() == name:
+                target_clips.append(clip)
+                found = True
+                break
+        if not found:
+            missing_clips.append(name)
+            
+    if missing_clips:
+        return f'Error: Clips not found: {", ".join(missing_clips)}'
+    
+    # Handle Timeline Selection
+    timeline = None
+    if timeline_name:
+        timeline_count = current_project.GetTimelineCount()
+        for i in range(1, timeline_count + 1):
+            t = current_project.GetTimelineByIndex(i)
+            if t and t.GetName() == timeline_name:
+                timeline = t
+                current_project.SetCurrentTimeline(t)
+                break
+        if not timeline:
+            return f'Error: Timeline "{timeline_name}" not found'
+    else:
+        timeline = current_project.GetCurrentTimeline()
+        if not timeline:
+            return 'Error: No timeline active'
+            
+    # Append to timeline
+    try:
+        if media_pool.AppendToTimeline(target_clips):
+            return f'Successfully added {len(target_clips)} clips to timeline'
+        else:
+            return 'Failed to add clips to timeline'
+    except Exception as e:
+        return f'Error appending clips: {str(e)}'
+
+def create_timeline_from_clips(resolve, name: str, clip_names: list) -> str:
+    """Create a timeline from a list of clips."""
+    if not resolve:
+        return 'Error: Not connected to DaVinci Resolve'
+        
+    project_manager = resolve.GetProjectManager()
+    if not project_manager:
+        return 'Error: Failed to get Project Manager'
+        
+    current_project = project_manager.GetCurrentProject()
+    if not current_project:
+        return 'Error: No project currently open'
+        
+    media_pool = current_project.GetMediaPool()
+    if not media_pool:
+        return 'Error: Failed to get Media Pool'
+        
+    # Retrieve clips
+    all_clips = get_all_media_pool_clips(media_pool)
+    target_clips = []
+    missing_clips = []
+    
+    for clip_name in clip_names:
+        found = False
+        for clip in all_clips:
+            if clip.GetName() == clip_name:
+                target_clips.append(clip)
+                found = True
+                break
+        if not found:
+            missing_clips.append(clip_name)
+            
+    if missing_clips:
+        return f'Error: Clips not found: {", ".join(missing_clips)}'
+        
+    # Create timeline
+    try:
+        timeline = media_pool.CreateTimelineFromClips(name, target_clips)
+        if timeline:
+            return f'Successfully created timeline "{name}" with {len(target_clips)} clips'
+        else:
+            # Check if timeline already exists
+            timeline_count = current_project.GetTimelineCount()
+            for i in range(1, timeline_count + 1):
+                t = current_project.GetTimelineByIndex(i)
+                if t and t.GetName() == name:
+                    return f'Error: Timeline "{name}" already exists'
+            return f'Failed to create timeline "{name}"'
+    except Exception as e:
+        return f'Error creating timeline: {str(e)}' 

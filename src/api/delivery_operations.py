@@ -589,4 +589,203 @@ def validate_render_preset(render_settings_interface, preset_name: str) -> Tuple
             return False, all_presets, f"Preset '{preset_name}' not found. Available presets: {', '.join(all_presets)}"
     except Exception as e:
         logger.error(f"Error while checking presets: {str(e)}")
-        return False, [], f"Error checking render presets: {str(e)}" 
+        return False, [], f"Error checking render presets: {str(e)}"
+
+
+def add_render_job_robust(
+    resolve,
+    preset_name: str = None,
+    output_dir: str = None,
+    output_filename: str = None,
+    format_name: str = None,
+    codec_name: str = None,
+    timeline_name: str = None
+) -> Dict[str, Any]:
+    """Robust render job addition with multiple fallback methods.
+    
+    Tries multiple approaches to add a render job, handling various
+    DaVinci Resolve API quirks and version differences.
+    
+    Args:
+        resolve: DaVinci Resolve instance
+        preset_name: Render preset name (optional, uses current settings if None)
+        output_dir: Output directory path
+        output_filename: Output filename (without extension)
+        format_name: Output format (e.g., 'mp4', 'mov')
+        codec_name: Codec name (e.g., 'H.264', 'H.265')
+        timeline_name: Timeline to render (uses current if None)
+        
+    Returns:
+        Dictionary with job_id on success or error information
+    """
+    if not resolve:
+        return {"error": "DaVinci Resolve не подключен"}
+    
+    pm = resolve.GetProjectManager()
+    if not pm:
+        return {"error": "Не удалось получить Project Manager"}
+    
+    project = pm.GetCurrentProject()
+    if not project:
+        return {"error": "Проект не открыт"}
+    
+    # Switch to Deliver page
+    if resolve.GetCurrentPage() != "deliver":
+        resolve.OpenPage("deliver")
+        import time
+        time.sleep(0.3)
+    
+    # Get or switch timeline
+    if timeline_name:
+        timeline = None
+        for i in range(project.GetTimelineCount()):
+            t = project.GetTimelineByIndex(i + 1)
+            if t and t.GetName() == timeline_name:
+                timeline = t
+                break
+        if not timeline:
+            return {"error": f"Timeline '{timeline_name}' не найден"}
+        project.SetCurrentTimeline(timeline)
+    else:
+        timeline = project.GetCurrentTimeline()
+        if not timeline:
+            return {"error": "Нет активного timeline"}
+    
+    timeline_name = timeline.GetName()
+    logger.info(f"Adding render job for timeline: {timeline_name}")
+    
+    # Build render settings
+    render_settings = {}
+    
+    if output_dir:
+        render_settings["TargetDir"] = output_dir
+    if output_filename:
+        render_settings["CustomName"] = output_filename
+    if format_name:
+        render_settings["FormatWidth"] = format_name
+    if codec_name:
+        render_settings["CodecName"] = codec_name
+    
+    # Method 1: Load preset and add job using AddRenderJob
+    if preset_name:
+        try:
+            if project.LoadRenderPreset(preset_name):
+                logger.info(f"Loaded preset: {preset_name}")
+                
+                # Apply additional settings
+                if render_settings:
+                    project.SetRenderSettings(render_settings)
+                
+                job_id = project.AddRenderJob()
+                if job_id:
+                    logger.info(f"Method 1 success: AddRenderJob returned {job_id}")
+                    return {
+                        "success": True,
+                        "method": "AddRenderJob",
+                        "job_id": job_id,
+                        "timeline": timeline_name,
+                        "preset": preset_name
+                    }
+        except Exception as e:
+            logger.warning(f"Method 1 failed: {e}")
+    
+    # Method 2: Use SetRenderSettings with SelectPreset
+    try:
+        settings_interface = project.GetRenderSettings()
+        if settings_interface:
+            settings_to_apply = render_settings.copy()
+            if preset_name:
+                settings_to_apply["SelectPreset"] = preset_name
+            
+            if settings_interface.SetRenderSettings(settings_to_apply):
+                job_id = project.AddRenderJob()
+                if job_id:
+                    logger.info(f"Method 2 success: SetRenderSettings + AddRenderJob")
+                    return {
+                        "success": True,
+                        "method": "SetRenderSettings",
+                        "job_id": job_id,
+                        "timeline": timeline_name
+                    }
+    except Exception as e:
+        logger.warning(f"Method 2 failed: {e}")
+    
+    # Method 3: Use AddTimelineToRenderQueue
+    try:
+        result = project.AddTimelineToRenderQueue(timeline_name)
+        if result:
+            logger.info(f"Method 3 success: AddTimelineToRenderQueue")
+            return {
+                "success": True,
+                "method": "AddTimelineToRenderQueue",
+                "timeline": timeline_name
+            }
+    except Exception as e:
+        logger.warning(f"Method 3 failed: {e}")
+    
+    # Method 4: Direct timeline export setup
+    try:
+        # Get render formats/codecs for fallback
+        formats = project.GetRenderFormats()
+        if formats and len(formats) > 0:
+            first_format = list(formats.keys())[0] if isinstance(formats, dict) else formats[0]
+            codecs = project.GetRenderCodecs(first_format)
+            
+            if codecs and len(codecs) > 0:
+                first_codec = list(codecs.keys())[0] if isinstance(codecs, dict) else codecs[0]
+                
+                project.SetCurrentRenderFormatAndCodec(first_format, first_codec)
+                job_id = project.AddRenderJob()
+                if job_id:
+                    logger.info(f"Method 4 success: Direct format/codec setup")
+                    return {
+                        "success": True,
+                        "method": "DirectFormatCodec",
+                        "job_id": job_id,
+                        "format": first_format,
+                        "codec": first_codec
+                    }
+    except Exception as e:
+        logger.warning(f"Method 4 failed: {e}")
+    
+    # All methods failed
+    return {
+        "error": "Не удалось добавить задание в очередь рендера",
+        "suggestion": "Попробуйте добавить задание вручную через Deliver page",
+        "timeline": timeline_name,
+        "details": "Все 4 метода добавления задания не сработали"
+    }
+
+
+def get_render_formats(resolve) -> Dict[str, Any]:
+    """Get available render formats and codecs.
+    
+    Returns:
+        Dictionary with formats and their available codecs
+    """
+    if not resolve:
+        return {"error": "DaVinci Resolve не подключен"}
+    
+    pm = resolve.GetProjectManager()
+    if not pm:
+        return {"error": "Не удалось получить Project Manager"}
+    
+    project = pm.GetCurrentProject()
+    if not project:
+        return {"error": "Проект не открыт"}
+    
+    try:
+        formats = project.GetRenderFormats()
+        result = {"formats": {}}
+        
+        if formats:
+            for fmt in formats:
+                try:
+                    codecs = project.GetRenderCodecs(fmt)
+                    result["formats"][fmt] = list(codecs.keys()) if isinstance(codecs, dict) else codecs
+                except:
+                    result["formats"][fmt] = []
+        
+        return result
+    except Exception as e:
+        return {"error": f"Ошибка получения форматов: {str(e)}"} 

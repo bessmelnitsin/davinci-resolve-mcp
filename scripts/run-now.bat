@@ -9,20 +9,24 @@ echo.
 
 REM Get the script directory and root directory (using absolute paths)
 set SCRIPT_DIR=%~dp0
-set ROOT_DIR=%SCRIPT_DIR%..
+set ROOT_DIR=%SCRIPT_DIR%..\
 echo Project root: %ROOT_DIR%
 
 set VENV_DIR=%ROOT_DIR%venv
 set RESOLVE_MCP_SERVER=%ROOT_DIR%src\resolve_mcp_server.py
 
-REM Check if Python is installed
-where python >nul 2>nul
-if %ERRORLEVEL% NEQ 0 (
-    echo Python is not installed or not in your PATH
-    echo Please install Python 3.6+ from https://www.python.org/downloads/
-    echo Make sure to check "Add Python to PATH" during installation
-    pause
-    exit /b 1
+REM Check for Python 3.13 specifically as it's known to work
+if exist "C:\Python313\python.exe" (
+    set PYTHON_EXE=C:\Python313\python.exe
+    echo Using Python 3.13 from C:\Python313
+) else (
+    where python >nul 2>nul
+    if %ERRORLEVEL% NEQ 0 (
+        echo Python is not installed or not in your PATH
+        pause
+        exit /b 1
+    )
+    set PYTHON_EXE=python
 )
 
 REM Check if Node.js/npm is installed (warning only)
@@ -75,8 +79,8 @@ if exist "C:\Program Files\Blackmagic Design\DaVinci Resolve\Resolve.exe" (
 :resolve_running
 REM Create virtual environment if it doesn't exist
 if not exist "%VENV_DIR%\Scripts\python.exe" (
-    echo Creating Python virtual environment...
-    python -m venv "%VENV_DIR%"
+    echo Creating Python virtual environment using %PYTHON_EXE%...
+    "%PYTHON_EXE%" -m venv "%VENV_DIR%"
     
     if %ERRORLEVEL% NEQ 0 (
         echo Failed to create virtual environment
@@ -108,11 +112,20 @@ if not exist "%VENV_DIR%\Scripts\mcp.exe" (
     )
 )
 
+REM Install uv to ensure mcp dev works correctly
+if not exist "%VENV_DIR%\Scripts\uv.exe" (
+    echo Installing uv...
+    call "%VENV_DIR%\Scripts\pip" install uv
+)
+
 REM Set environment variables
 echo Setting environment variables...
 set RESOLVE_SCRIPT_API=C:\ProgramData\Blackmagic Design\DaVinci Resolve\Support\Developer\Scripting
 set RESOLVE_SCRIPT_LIB=C:\Program Files\Blackmagic Design\DaVinci Resolve\fusionscript.dll
 set PYTHONPATH=%PYTHONPATH%;%RESOLVE_SCRIPT_API%\Modules
+
+REM Add venv Scripts to PATH so uv and other tools can be found
+set PATH=%VENV_DIR%\Scripts;%PATH%
 
 REM Save environment variables for user
 setx RESOLVE_SCRIPT_API "%RESOLVE_SCRIPT_API%" >nul
@@ -126,10 +139,9 @@ if not exist "%RESOLVE_MCP_SERVER%" (
     exit /b 1
 )
 
-REM Start the server
+REM Start the server using relative path to avoid Windows path escaping issues
 echo Starting DaVinci Resolve MCP Server...
-echo Using server script: %RESOLVE_MCP_SERVER%
 echo.
 
-cd "%ROOT_DIR%"
-"%VENV_DIR%\Scripts\mcp" dev "%RESOLVE_MCP_SERVER%"
+cd /d "%ROOT_DIR%"
+"%VENV_DIR%\Scripts\mcp" dev --with "mcp[cli]" "src/resolve_mcp_server.py"

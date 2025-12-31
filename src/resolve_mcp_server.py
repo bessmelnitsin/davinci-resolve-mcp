@@ -11,11 +11,11 @@ import sys
 import logging
 from typing import List, Dict, Any, Optional, Union
 
-# Add src directory to Python path
+# Add project root directory to Python path
 current_dir = os.path.dirname(os.path.abspath(__file__))
-src_dir = os.path.join(current_dir, 'src')
-if src_dir not in sys.path:
-    sys.path.insert(0, src_dir)
+project_root = os.path.dirname(current_dir)
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
 
 # Import platform utilities
 from src.utils.platform import setup_environment, get_platform, get_resolve_paths
@@ -28,6 +28,12 @@ RESOLVE_MODULES_PATH = paths["modules_path"]
 
 os.environ["RESOLVE_SCRIPT_API"] = RESOLVE_API_PATH
 os.environ["RESOLVE_SCRIPT_LIB"] = RESOLVE_LIB_PATH
+
+# DLL directory fix for Python 3.8+ on Windows
+if sys.platform.startswith("win") and hasattr(os, "add_dll_directory"):
+    resolve_dir = os.path.dirname(RESOLVE_LIB_PATH)
+    if os.path.exists(resolve_dir):
+        os.add_dll_directory(resolve_dir)
 
 # Add the module path to Python's path if it's not already there
 if RESOLVE_MODULES_PATH not in sys.path:
@@ -88,7 +94,7 @@ from src.utils.project_properties import (
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    handlers=[logging.StreamHandler()]
+    handlers=[logging.StreamHandler(sys.stderr)]
 )
 logger = logging.getLogger("davinci-resolve-mcp")
 
@@ -124,9 +130,193 @@ except Exception as e:
     logger.error(f"Unexpected error initializing Resolve: {str(e)}")
     resolve = None
 
+# New Modules for v2 Workflow
+from src.api.whisper_node import transcribe_with_whisper_node
+from src.api.jump_cut import generate_jump_cut_edits
+from src.api.smart_editing import create_vertical_timeline, create_trendy_timeline
+from src.api.ai_director import prepare_transcription_for_ai
+
 # ------------------
 # MCP Tools/Resources
 # ------------------
+
+@mcp.tool()
+def transcribe_clip_to_cache(clip_name: str, model_size: str = "large-v3", force_retranscribe: bool = False) -> str:
+    """Run Whisper transcription and save result to a .json file next to the media.
+    
+    Args:
+        clip_name: Name of the clip to transcribe
+        model_size: Whisper model size
+        force_retranscribe: If True, ignore existing cache
+    """
+    if resolve is None: return "Error: Not connected"
+    
+    from src.api.media_operations import get_all_media_pool_clips
+    project = resolve.GetProjectManager().GetCurrentProject()
+    media_pool = project.GetMediaPool()
+    clips = get_all_media_pool_clips(media_pool)
+    target_clip = next((c for c in clips if c.GetName() == clip_name), None)
+    
+    if not target_clip: return f"Error: Clip '{clip_name}' not found"
+    
+    file_path = target_clip.GetClipProperty("File Path")
+    if not file_path: return "Error: File path not found"
+    
+    logger.info(f"Transcribing to cache: {clip_name}")
+    whisper_data = transcribe_with_whisper_node(file_path, model_size=model_size, use_cache=not force_retranscribe)
+    
+    if "error" in whisper_data:
+        return f"Transcription failed: {whisper_data['error']}"
+        
+    cache_path = file_path + ".whisper.json"
+    return f"Success. Transcription cached at: {cache_path}"
+
+@mcp.tool()
+def get_cached_transcription(clip_name: str) -> str:
+    """Read transcription from cache without running Whisper.
+    
+    Args:
+        clip_name: Name of the clip in Media Pool
+    """
+    if resolve is None: return "Error: Not connected"
+    
+    from src.api.media_operations import get_all_media_pool_clips
+    project = resolve.GetProjectManager().GetCurrentProject()
+    media_pool = project.GetMediaPool()
+    clips = get_all_media_pool_clips(media_pool)
+    target_clip = next((c for c in clips if c.GetName() == clip_name), None)
+    
+    if not target_clip: return f"Error: Clip '{clip_name}' not found"
+    
+    file_path = target_clip.GetClipProperty("File Path")
+    cache_path = file_path + ".whisper.json"
+    
+    if not os.path.exists(cache_path):
+        return f"Error: No cache found at {cache_path}. Run 'transcribe_clip_to_cache' first."
+        
+    try:
+        with open(cache_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        return prepare_transcription_for_ai(data)
+    except Exception as e:
+        return f"Error reading cache: {e}"
+
+@mcp.tool()
+def get_clip_transcription(clip_name: str, model_size: str = "large-v3") -> str:
+    """Helper that transcribes OR loads from cache and returns text.
+    """
+    if resolve is None: return "Error: Not connected"
+    
+    from src.api.media_operations import get_all_media_pool_clips
+    project = resolve.GetProjectManager().GetCurrentProject()
+    media_pool = project.GetMediaPool()
+    clips = get_all_media_pool_clips(media_pool)
+    target_clip = next((c for c in clips if c.GetName() == clip_name), None)
+    
+    if not target_clip: return f"Error: Clip '{clip_name}' not found"
+    
+    file_path = target_clip.GetClipProperty("File Path")
+    whisper_data = transcribe_with_whisper_node(file_path, model_size=model_size)
+    
+    if "error" in whisper_data: return f"Whisper failed: {whisper_data['error']}"
+        
+    return prepare_transcription_for_ai(whisper_data)
+
+@mcp.tool()
+def assemble_viral_reels(clip_name: str, segments: List[Dict[str, Any]]) -> str:
+    """Assemble vertical Reel timelines from selected segments.
+    
+    Args:
+        clip_name: Source clip name
+        segments: List of dicts with {"start": 0.0, "end": 10.0, "title": "Optional Name"}
+    """
+    if resolve is None: return "Error: Not connected"
+    
+    results = []
+    for i, seg in enumerate(segments):
+        title = seg.get("title", f"Reel_{i+1}")
+        edits = [{
+            "clip_name": clip_name,
+            "start_time": seg["start"],
+            "end_time": seg["end"]
+        }]
+        
+        # Use create_vertical_timeline for each Reel
+        res = create_vertical_timeline(resolve, edits, f"{title}_{clip_name}")
+        results.append(res)
+        
+    return "\n".join(results)
+
+@mcp.tool()
+def smart_jump_cut(clip_name: str, silence_threshold: float = 0.5) -> str:
+    """Automatically remove silence from a clip and create a new timeline.
+    
+    Args:
+        clip_name: Name of the clip in Media Pool
+        silence_threshold: Silence duration to cut (default 0.5s)
+    """
+    if resolve is None: return "Error: Not connected"
+    
+    from src.api.media_operations import get_all_media_pool_clips
+    project = resolve.GetProjectManager().GetCurrentProject()
+    media_pool = project.GetMediaPool()
+    clips = get_all_media_pool_clips(media_pool)
+    target_clip = next((c for c in clips if c.GetName() == clip_name), None)
+    
+    if not target_clip: return f"Error: Clip '{clip_name}' not found"
+    
+    # Try to get absolute path from clip properties (Metalogging etc.)
+    props = target_clip.GetClipProperty()
+    file_path = props.get("File Path")
+    
+    if not file_path:
+        return "Error: Could not determine file path of the clip for Whisper."
+    
+    # Node B: Transcribe
+    logger.info(f"Transcribing {clip_name} with Whisper Node B...")
+    whisper_data = transcribe_with_whisper_node(file_path)
+    
+    if "error" in whisper_data:
+        return f"Whisper failed: {whisper_data['error']}"
+        
+    # Node C: Logic
+    edits = generate_jump_cut_edits(whisper_data, clip_name, silence_threshold)
+    
+    # Node A: Assembly
+    if not edits: return "No speech detected or entire clip is silence."
+    
+    from src.api.smart_editing import create_trendy_timeline
+    result = create_trendy_timeline(resolve, edits, f"JumpCut_{clip_name}")
+    return result
+
+@mcp.tool()
+def viral_reels_factory(clip_name: str) -> str:
+    """Generate 1080x1920 Reels from a source clip.
+    
+    Currently generates segments based on detected speech.
+    """
+    if resolve is None: return "Error: Not connected"
+    
+    from src.api.media_operations import get_all_media_pool_clips
+    project = resolve.GetProjectManager().GetCurrentProject()
+    media_pool = project.GetMediaPool()
+    clips = get_all_media_pool_clips(media_pool)
+    target_clip = next((c for c in clips if c.GetName() == clip_name), None)
+    
+    if not target_clip: return f"Error: Clip '{clip_name}' not found"
+    
+    file_path = target_clip.GetClipProperty("File Path")
+    whisper_data = transcribe_with_whisper_node(file_path)
+    
+    if "error" in whisper_data: return f"Whisper failed: {whisper_data['error']}"
+    
+    # Logic: Pick longer segments (3-8s) for 'viral' feel
+    from src.api.jump_cut import generate_jump_cut_edits
+    edits = generate_jump_cut_edits(whisper_data, clip_name, silence_threshold=2.0)
+    
+    # Assembly: Vertical
+    result = create_vertical_timeline(resolve, edits, f"Reels_{clip_name}")
+    return result
 
 @mcp.resource("resolve://version")
 def get_resolve_version() -> str:
@@ -547,7 +737,7 @@ def get_timeline_tracks(timeline_name: str = None) -> Dict[str, Any]:
     Args:
         timeline_name: Optional name of the timeline to get tracks from. Uses current timeline if None.
     """
-    from api.timeline_operations import get_timeline_tracks as get_tracks_func
+    from src.api.timeline_operations import get_timeline_tracks as get_tracks_func
     return get_tracks_func(resolve, timeline_name)
 
 @mcp.tool()
@@ -600,7 +790,7 @@ def create_empty_timeline(name: str,
         video_tracks: Optional number of video tracks (Default is project setting)
         audio_tracks: Optional number of audio tracks (Default is project setting)
     """
-    from api.timeline_operations import create_empty_timeline as create_empty_timeline_func
+    from src.api.timeline_operations import create_empty_timeline as create_empty_timeline_func
     return create_empty_timeline_func(resolve, name, frame_rate, resolution_width, 
                                     resolution_height, start_timecode, 
                                     video_tracks, audio_tracks)
@@ -612,7 +802,7 @@ def delete_timeline(name: str) -> str:
     Args:
         name: The name of the timeline to delete
     """
-    from api.timeline_operations import delete_timeline as delete_timeline_func
+    from src.api.timeline_operations import delete_timeline as delete_timeline_func
     return delete_timeline_func(resolve, name)
 
 @mcp.tool()
@@ -658,7 +848,7 @@ def add_marker(frame: int = None, color: str = "Blue", note: str = "") -> str:
         color: The marker color (Blue, Cyan, Green, Yellow, Red, Pink, Purple, Fuchsia, Rose, Lavender, Sky, Mint, Lemon, Sand, Cocoa, Cream)
         note: Text note to add to the marker
     """
-    from api.timeline_operations import add_marker as add_marker_func
+    from src.api.timeline_operations import add_marker as add_marker_func
     return add_marker_func(resolve, frame, color, note)
 
 # ------------------
@@ -683,22 +873,35 @@ def list_media_pool_clips() -> List[Dict[str, Any]]:
     if not media_pool:
         return [{"error": "Failed to get Media Pool"}]
     
-    root_folder = media_pool.GetRootFolder()
-    if not root_folder:
-        return [{"error": "Failed to get root folder"}]
-    
-    clips = root_folder.GetClipList()
+    # Import recursive search function
+    try:
+        from src.api.media_operations import get_all_media_pool_clips
+        clips = get_all_media_pool_clips(media_pool)
+    except ImportError as e:
+        import sys
+        return [{"info": f"Import Error: {e}, Path: {sys.path}"}]
+    except Exception as e:
+        return [{"info": f"Unknown Error: {e}"}]
+
     if not clips:
-        return [{"info": "No clips found in the root folder"}]
+        return [{"info": "No clips found in the media pool"}]
     
     # Return a simplified list with basic clip info
     result = []
     for clip in clips:
-        result.append({
-            "name": clip.GetName(),
-            "duration": clip.GetDuration(),
-            "fps": clip.GetClipProperty("FPS")
-        })
+        # Check if clip is valid
+        try:
+            name = clip.GetName()
+            duration = clip.GetDuration()
+            fps = clip.GetClipProperty("FPS")
+            result.append({
+                "name": name,
+                "duration": duration,
+                "fps": fps
+            })
+        except:
+             # Skip invalid clips
+             continue
     
     return result
 
@@ -709,7 +912,7 @@ def import_media(file_path: str) -> str:
     Args:
         file_path: The path to the media file to import
     """
-    from api.media_operations import import_media as import_media_func
+    from src.api.media_operations import import_media as import_media_func
     return import_media_func(resolve, file_path)
 
 @mcp.tool()
@@ -719,7 +922,7 @@ def delete_media(clip_name: str) -> str:
     Args:
         clip_name: Name of the clip to delete
     """
-    from api.media_operations import delete_media as delete_media_func
+    from src.api.media_operations import delete_media as delete_media_func
     return delete_media_func(resolve, clip_name)
 
 @mcp.tool()
@@ -730,7 +933,7 @@ def move_media_to_bin(clip_name: str, bin_name: str) -> str:
         clip_name: Name of the clip to move
         bin_name: Name of the target bin
     """
-    from api.media_operations import move_media_to_bin as move_media_func
+    from src.api.media_operations import move_media_to_bin as move_media_func
     return move_media_func(resolve, clip_name, bin_name)
 
 @mcp.tool()
@@ -744,7 +947,7 @@ def auto_sync_audio(clip_names: List[str], sync_method: str = "waveform",
         append_mode: Whether to append the audio or replace it
         target_bin: Optional bin to move synchronized clips to
     """
-    from api.media_operations import auto_sync_audio as auto_sync_audio_func
+    from src.api.media_operations import auto_sync_audio as auto_sync_audio_func
     return auto_sync_audio_func(resolve, clip_names, sync_method, append_mode, target_bin)
 
 @mcp.tool()
@@ -754,7 +957,7 @@ def unlink_clips(clip_names: List[str]) -> str:
     Args:
         clip_names: List of clip names to unlink
     """
-    from api.media_operations import unlink_clips as unlink_clips_func
+    from src.api.media_operations import unlink_clips as unlink_clips_func
     return unlink_clips_func(resolve, clip_names)
 
 @mcp.tool()
@@ -768,7 +971,7 @@ def relink_clips(clip_names: List[str], media_paths: List[str] = None,
         folder_path: Optional folder path to search for media files
         recursive: Whether to search the folder path recursively
     """
-    from api.media_operations import relink_clips as relink_clips_func
+    from src.api.media_operations import relink_clips as relink_clips_func
     return relink_clips_func(resolve, clip_names, media_paths, folder_path, recursive)
 
 @mcp.tool()
@@ -4624,6 +4827,60 @@ def get_project_info_endpoint() -> Dict[str, Any]:
         return {"error": "No project currently open"}
     
     return get_project_info(current_project)
+
+@mcp.tool()
+def append_clips_to_timeline(clip_names: List[str], timeline_name: str = None) -> str:
+    """Append a list of clips (by name) to the timeline."""
+    from src.api.media_operations import append_clips_to_timeline as append_func
+    return append_func(resolve, clip_names, timeline_name)
+
+@mcp.tool()
+def create_timeline_from_clips(name: str, clip_names: List[str]) -> str:
+    """Create a new timeline containing the specified clips."""
+    from src.api.media_operations import create_timeline_from_clips as create_func
+    return create_func(resolve, name, clip_names)
+
+# ------------------
+# Audio & Smart Editing
+# ------------------
+
+@mcp.tool()
+def list_clips_tool() -> List[Dict[str, Any]]:
+    """List all clips available in the Media Pool."""
+    from src.api.media_operations import list_media_pool_clips as list_func
+    return list_func(resolve)
+
+@mcp.tool()
+def transcribe_folder_tool(folder_name: str) -> Dict[str, Any]:
+    """Transcribe all audio clips in a specific Media Pool folder using Native AI.
+    
+    Args:
+        folder_name: Name of the folder to transcribe
+    """
+    from src.api.audio_operations import transcribe_folder as transcribe_func
+    return transcribe_func(resolve, folder_name)
+
+@mcp.tool()
+def transcribe_clip_tool(clip_name: str, model_size: str = "base") -> Dict[str, Any]:
+    """Transcribe audio from a specific clip using Whisper.
+    
+    Args:
+        clip_name: Name of the clip to transcribe
+        model_size: Whisper model size (tiny, base, small, medium, large)
+    """
+    from src.api.audio_operations import transcribe_clip as transcribe_func
+    return transcribe_func(resolve, clip_name, model_size)
+
+@mcp.tool()
+def create_trendy_timeline_tool(edits: List[Dict[str, Any]], timeline_name: str = "Trendy Cut") -> str:
+    """Create a new timeline with precisely trimmed clips and 1s gaps.
+    
+    Args:
+        edits: List of segments, e.g. [{"clip_name": "A.mov", "start_time": 10, "end_time": 15}]
+        timeline_name: Name for the result timeline
+    """
+    from src.api.smart_editing import create_trendy_timeline as create_func
+    return create_func(resolve, edits, timeline_name)
 
 # Start the server
 if __name__ == "__main__":
