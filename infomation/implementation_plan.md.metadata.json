@@ -1,5 +1,0 @@
-{
-  "artifactType":  "ARTIFACT_TYPE_IMPLEMENTATION_PLAN",
-  "summary":  "Detailed implementation roadmap for DaVinci Resolve MCP server organized into 4 phases:\n\n1. **Critical Fixes (1-2 days)**: Remove hardcoded paths from whisper_node.py, implement empty parse_ai_segments() function, fix AddRenderJob errors.\n\n2. **Refactoring (3-5 days)**: Decompose 4900-line resolve_mcp_server.py into modules, remove duplicate code, add centralized error handling with decorators.\n\n3. **New Features (1-2 weeks)**: Add Fairlight (audio) operations, Fusion (effects) operations, Smart Reframe, Auto Subtitles, Scene Detection, Music Sync.\n\n4. **Testing (ongoing)**: Create mock Resolve API, unit tests, integration tests, CI/CD pipeline.\n\nIncludes specific code examples, file paths, and a checklist of 20+ concrete tasks.",
-  "updatedAt":  "2025-12-31T18:09:13.728607100Z"
-}

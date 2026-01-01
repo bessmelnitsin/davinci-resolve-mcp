@@ -133,8 +133,14 @@ except Exception as e:
 # New Modules for v2 Workflow
 from src.api.whisper_node import transcribe_with_whisper_node
 from src.api.jump_cut import generate_jump_cut_edits
-from src.api.smart_editing import create_vertical_timeline, create_trendy_timeline
+from src.api.smart_editing import create_vertical_timeline, create_trendy_timeline as create_trendy_impl
 from src.api.ai_director import prepare_transcription_for_ai
+from src.api import (
+    transcription_operations,
+    keyframe_operations,
+    gallery_operations,
+    export_operations
+)
 
 # ------------------
 # MCP Tools/Resources
@@ -149,27 +155,8 @@ def transcribe_clip_to_cache(clip_name: str, model_size: str = "large-v3", force
         model_size: Whisper model size
         force_retranscribe: If True, ignore existing cache
     """
-    if resolve is None: return "Error: Not connected"
-    
-    from src.api.media_operations import get_all_media_pool_clips
-    project = resolve.GetProjectManager().GetCurrentProject()
-    media_pool = project.GetMediaPool()
-    clips = get_all_media_pool_clips(media_pool)
-    target_clip = next((c for c in clips if c.GetName() == clip_name), None)
-    
-    if not target_clip: return f"Error: Clip '{clip_name}' not found"
-    
-    file_path = target_clip.GetClipProperty("File Path")
-    if not file_path: return "Error: File path not found"
-    
-    logger.info(f"Transcribing to cache: {clip_name}")
-    whisper_data = transcribe_with_whisper_node(file_path, model_size=model_size, use_cache=not force_retranscribe)
-    
-    if "error" in whisper_data:
-        return f"Transcription failed: {whisper_data['error']}"
-        
-    cache_path = file_path + ".whisper.json"
-    return f"Success. Transcription cached at: {cache_path}"
+    return transcription_operations.transcribe_clip_to_cache(resolve, clip_name, model_size, force_retranscribe)
+
 
 @mcp.tool()
 def get_cached_transcription(clip_name: str) -> str:
@@ -178,49 +165,13 @@ def get_cached_transcription(clip_name: str) -> str:
     Args:
         clip_name: Name of the clip in Media Pool
     """
-    if resolve is None: return "Error: Not connected"
-    
-    from src.api.media_operations import get_all_media_pool_clips
-    project = resolve.GetProjectManager().GetCurrentProject()
-    media_pool = project.GetMediaPool()
-    clips = get_all_media_pool_clips(media_pool)
-    target_clip = next((c for c in clips if c.GetName() == clip_name), None)
-    
-    if not target_clip: return f"Error: Clip '{clip_name}' not found"
-    
-    file_path = target_clip.GetClipProperty("File Path")
-    cache_path = file_path + ".whisper.json"
-    
-    if not os.path.exists(cache_path):
-        return f"Error: No cache found at {cache_path}. Run 'transcribe_clip_to_cache' first."
-        
-    try:
-        with open(cache_path, "r", encoding="utf-8") as f:
-            data = json.load(f)
-        return prepare_transcription_for_ai(data)
-    except Exception as e:
-        return f"Error reading cache: {e}"
+    return transcription_operations.get_cached_transcription(resolve, clip_name)
 
 @mcp.tool()
 def get_clip_transcription(clip_name: str, model_size: str = "large-v3") -> str:
     """Helper that transcribes OR loads from cache and returns text.
     """
-    if resolve is None: return "Error: Not connected"
-    
-    from src.api.media_operations import get_all_media_pool_clips
-    project = resolve.GetProjectManager().GetCurrentProject()
-    media_pool = project.GetMediaPool()
-    clips = get_all_media_pool_clips(media_pool)
-    target_clip = next((c for c in clips if c.GetName() == clip_name), None)
-    
-    if not target_clip: return f"Error: Clip '{clip_name}' not found"
-    
-    file_path = target_clip.GetClipProperty("File Path")
-    whisper_data = transcribe_with_whisper_node(file_path, model_size=model_size)
-    
-    if "error" in whisper_data: return f"Whisper failed: {whisper_data['error']}"
-        
-    return prepare_transcription_for_ai(whisper_data)
+    return transcription_operations.get_clip_transcription(resolve, clip_name, model_size)
 
 @mcp.tool()
 def assemble_viral_reels(clip_name: str, segments: List[Dict[str, Any]]) -> str:
@@ -246,6 +197,16 @@ def assemble_viral_reels(clip_name: str, segments: List[Dict[str, Any]]) -> str:
         results.append(res)
         
     return "\n".join(results)
+
+@mcp.tool()
+def create_trendy_timeline(edits: List[Dict[str, Any]], timeline_name: str = "Trendy Cut") -> str:
+    """Create a new timeline structured with selected clips and gaps.
+    
+    Args:
+         edits: List of edits with clip_name, start_time, end_time
+         timeline_name: Name of the timeline to create
+    """
+    return create_trendy_impl(resolve, edits, timeline_name)
 
 @mcp.tool()
 def smart_jump_cut(clip_name: str, silence_threshold: float = 0.5) -> str:
@@ -857,53 +818,9 @@ def add_marker(frame: int = None, color: str = "Blue", note: str = "") -> str:
 
 @mcp.resource("resolve://media-pool-clips")
 def list_media_pool_clips() -> List[Dict[str, Any]]:
-    """List all clips in the root folder of the media pool."""
-    if resolve is None:
-        return [{"error": "Not connected to DaVinci Resolve"}]
-    
-    project_manager = resolve.GetProjectManager()
-    if not project_manager:
-        return [{"error": "Failed to get Project Manager"}]
-    
-    current_project = project_manager.GetCurrentProject()
-    if not current_project:
-        return [{"error": "No project currently open"}]
-    
-    media_pool = current_project.GetMediaPool()
-    if not media_pool:
-        return [{"error": "Failed to get Media Pool"}]
-    
-    # Import recursive search function
-    try:
-        from src.api.media_operations import get_all_media_pool_clips
-        clips = get_all_media_pool_clips(media_pool)
-    except ImportError as e:
-        import sys
-        return [{"info": f"Import Error: {e}, Path: {sys.path}"}]
-    except Exception as e:
-        return [{"info": f"Unknown Error: {e}"}]
-
-    if not clips:
-        return [{"info": "No clips found in the media pool"}]
-    
-    # Return a simplified list with basic clip info
-    result = []
-    for clip in clips:
-        # Check if clip is valid
-        try:
-            name = clip.GetName()
-            duration = clip.GetDuration()
-            fps = clip.GetClipProperty("FPS")
-            result.append({
-                "name": name,
-                "duration": duration,
-                "fps": fps
-            })
-        except:
-             # Skip invalid clips
-             continue
-    
-    return result
+    """List all clips in the media pool."""
+    from src.api.media_operations import list_media_pool_clips as list_clips_func
+    return list_clips_func(resolve)
 
 @mcp.tool()
 def import_media(file_path: str) -> str:
@@ -1560,63 +1477,9 @@ def clear_folder_transcription(folder_name: str) -> str:
     Args:
         folder_name: Name of the folder to clear transcriptions from
     """
-    if resolve is None:
-        return "Error: Not connected to DaVinci Resolve"
-    
-    project_manager = resolve.GetProjectManager()
-    if not project_manager:
-        return "Error: Failed to get Project Manager"
-    
-    current_project = project_manager.GetCurrentProject()
-    if not current_project:
-        return "Error: No project currently open"
-    
-    media_pool = current_project.GetMediaPool()
-    if not media_pool:
-        return "Error: Failed to get Media Pool"
-    
-    # Find the folder by name
-    target_folder = None
-    root_folder = media_pool.GetRootFolder()
-    
-    if folder_name.lower() == "root" or folder_name.lower() == "master":
-        target_folder = root_folder
-    else:
-        # Search for the folder by name
-        folders = get_all_media_pool_folders(media_pool)
-        for folder in folders:
-            if folder.GetName() == folder_name:
-                target_folder = folder
-                break
-    
-    if not target_folder:
-        return f"Error: Folder '{folder_name}' not found in Media Pool"
-    
-    # Clear transcription for the folder
-    try:
-        result = target_folder.ClearTranscription()
-        if result:
-            return f"Successfully cleared audio transcription for folder '{folder_name}'"
-        else:
-            return f"Failed to clear audio transcription for folder '{folder_name}'"
-    except Exception as e:
-        return f"Error clearing audio transcription: {str(e)}"
+    return transcription_operations.clear_folder_transcription(resolve, folder_name)
 
-# Utility function to get all folders from the media pool (recursively)
-def get_all_media_pool_folders(media_pool):
-    """Get all folders from media pool recursively."""
-    folders = []
-    root_folder = media_pool.GetRootFolder()
-    
-    def process_folder(folder):
-        folders.append(folder)
-        
-        sub_folders = folder.GetSubFolderList()
-        for sub_folder in sub_folders:
-            process_folder(sub_folder)
-    
-    process_folder(root_folder)
-    return folders
+
 
 # ------------------
 # Cache Management
@@ -2755,136 +2618,7 @@ def get_timeline_item_keyframes(timeline_item_id: str, property_name: str) -> Di
         timeline_item_id: The ID of the timeline item to get keyframes for
         property_name: Optional property name to filter keyframes (e.g., 'Pan', 'ZoomX')
     """
-    if resolve is None:
-        return {"error": "Not connected to DaVinci Resolve"}
-    
-    project_manager = resolve.GetProjectManager()
-    if not project_manager:
-        return {"error": "Failed to get Project Manager"}
-    
-    current_project = project_manager.GetCurrentProject()
-    if not current_project:
-        return {"error": "No project currently open"}
-    
-    current_timeline = current_project.GetCurrentTimeline()
-    if not current_timeline:
-        return {"error": "No timeline currently active"}
-    
-    try:
-        # Find the timeline item by ID
-        video_track_count = current_timeline.GetTrackCount("video")
-        audio_track_count = current_timeline.GetTrackCount("audio")
-        
-        timeline_item = None
-        
-        # Search video tracks
-        for track_index in range(1, video_track_count + 1):
-            items = current_timeline.GetItemListInTrack("video", track_index)
-            if items:
-                for item in items:
-                    if str(item.GetUniqueId()) == timeline_item_id:
-                        timeline_item = item
-                        break
-            if timeline_item:
-                break
-        
-        # If not found, search audio tracks
-        if not timeline_item:
-            for track_index in range(1, audio_track_count + 1):
-                items = current_timeline.GetItemListInTrack("audio", track_index)
-                if items:
-                    for item in items:
-                        if str(item.GetUniqueId()) == timeline_item_id:
-                            timeline_item = item
-                            break
-                if timeline_item:
-                    break
-        
-        if not timeline_item:
-            return {"error": f"Timeline item with ID '{timeline_item_id}' not found"}
-        
-        # Get all keyframeable properties for this item
-        keyframeable_properties = []
-        keyframes = {}
-        
-        # Common keyframeable properties for video items
-        video_properties = [
-            'Pan', 'Tilt', 'ZoomX', 'ZoomY', 'Rotation', 'AnchorPointX', 'AnchorPointY',
-            'Pitch', 'Yaw', 'Opacity', 'CropLeft', 'CropRight', 'CropTop', 'CropBottom'
-        ]
-        
-        # Audio-specific keyframeable properties
-        audio_properties = ['Volume', 'Pan']
-        
-        # Check if it's a video item
-        if timeline_item.GetType() == "Video":
-            # Check each property to see if it has keyframes
-            for prop in video_properties:
-                if timeline_item.GetKeyframeCount(prop) > 0:
-                    keyframeable_properties.append(prop)
-                    
-                    # Get all keyframes for this property
-                    keyframes[prop] = []
-                    keyframe_count = timeline_item.GetKeyframeCount(prop)
-                    
-                    for i in range(keyframe_count):
-                        # Get the frame position and value of the keyframe
-                        frame_pos = timeline_item.GetKeyframeAtIndex(prop, i)["frame"]
-                        value = timeline_item.GetPropertyAtKeyframeIndex(prop, i)
-                        
-                        keyframes[prop].append({
-                            "frame": frame_pos,
-                            "value": value
-                        })
-        
-        # Check if it has audio properties (could be video with audio or audio-only)
-        if timeline_item.GetType() == "Audio" or timeline_item.GetMediaType() == "Audio":
-            # Check each audio property for keyframes
-            for prop in audio_properties:
-                if timeline_item.GetKeyframeCount(prop) > 0:
-                    keyframeable_properties.append(prop)
-                    
-                    # Get all keyframes for this property
-                    keyframes[prop] = []
-                    keyframe_count = timeline_item.GetKeyframeCount(prop)
-                    
-                    for i in range(keyframe_count):
-                        # Get the frame position and value of the keyframe
-                        frame_pos = timeline_item.GetKeyframeAtIndex(prop, i)["frame"]
-                        value = timeline_item.GetPropertyAtKeyframeIndex(prop, i)
-                        
-                        keyframes[prop].append({
-                            "frame": frame_pos,
-                            "value": value
-                        })
-        
-        # Filter by property_name if specified
-        if property_name:
-            if property_name in keyframes:
-                return {
-                    "item_id": timeline_item_id,
-                    "item_name": timeline_item.GetName(),
-                    "properties": [property_name],
-                    "keyframes": {property_name: keyframes[property_name]}
-                }
-            else:
-                return {
-                    "item_id": timeline_item_id,
-                    "item_name": timeline_item.GetName(),
-                    "properties": [],
-                    "keyframes": {}
-                }
-        
-        # Return all keyframes
-        return {
-            "item_id": timeline_item_id,
-            "item_name": timeline_item.GetName(),
-            "properties": keyframeable_properties,
-            "keyframes": keyframes
-        }
-        
-    except Exception as e:
-        return {"error": f"Error getting timeline item keyframes: {str(e)}"}
+    return keyframe_operations.get_timeline_item_keyframes(resolve, timeline_item_id, property_name)
 
 @mcp.tool()
 def add_keyframe(timeline_item_id: str, property_name: str, frame: int, value: float) -> str:
@@ -2896,93 +2630,7 @@ def add_keyframe(timeline_item_id: str, property_name: str, frame: int, value: f
         frame: Frame position for the keyframe
         value: Value to set at the keyframe
     """
-    if resolve is None:
-        return "Error: Not connected to DaVinci Resolve"
-    
-    project_manager = resolve.GetProjectManager()
-    if not project_manager:
-        return "Error: Failed to get Project Manager"
-    
-    current_project = project_manager.GetCurrentProject()
-    if not current_project:
-        return "Error: No project currently open"
-    
-    current_timeline = current_project.GetCurrentTimeline()
-    if not current_timeline:
-        return "Error: No timeline currently active"
-    
-    # Valid keyframeable properties
-    video_properties = [
-        'Pan', 'Tilt', 'ZoomX', 'ZoomY', 'Rotation', 'AnchorPointX', 'AnchorPointY',
-        'Pitch', 'Yaw', 'Opacity', 'CropLeft', 'CropRight', 'CropTop', 'CropBottom'
-    ]
-    
-    audio_properties = ['Volume', 'Pan']
-    
-    valid_properties = video_properties + audio_properties
-    
-    if property_name not in valid_properties:
-        return f"Error: Invalid property name. Must be one of: {', '.join(valid_properties)}"
-    
-    try:
-        # Find the timeline item by ID
-        video_track_count = current_timeline.GetTrackCount("video")
-        audio_track_count = current_timeline.GetTrackCount("audio")
-        
-        timeline_item = None
-        is_audio = False
-        
-        # Search video tracks
-        for track_index in range(1, video_track_count + 1):
-            items = current_timeline.GetItemListInTrack("video", track_index)
-            if items:
-                for item in items:
-                    if str(item.GetUniqueId()) == timeline_item_id:
-                        timeline_item = item
-                        break
-            if timeline_item:
-                break
-        
-        # If not found, search audio tracks
-        if not timeline_item:
-            for track_index in range(1, audio_track_count + 1):
-                items = current_timeline.GetItemListInTrack("audio", track_index)
-                if items:
-                    for item in items:
-                        if str(item.GetUniqueId()) == timeline_item_id:
-                            timeline_item = item
-                            is_audio = True
-                            break
-                if timeline_item:
-                    break
-        
-        if not timeline_item:
-            return f"Error: Timeline item with ID '{timeline_item_id}' not found"
-        
-        # Check if the specified property is valid for this item type
-        if is_audio and property_name not in audio_properties:
-            return f"Error: Property '{property_name}' is not available for audio items"
-        
-        if not is_audio and property_name not in video_properties and timeline_item.GetType() != "Video":
-            return f"Error: Property '{property_name}' is not available for this item type"
-            
-        # Validate frame is within the item's range
-        start_frame = timeline_item.GetStart()
-        end_frame = timeline_item.GetEnd()
-        
-        if frame < start_frame or frame > end_frame:
-            return f"Error: Frame {frame} is outside the item's range ({start_frame} to {end_frame})"
-        
-        # Add the keyframe
-        result = timeline_item.AddKeyframe(property_name, frame, value)
-        
-        if result:
-            return f"Successfully added keyframe for {property_name} at frame {frame} with value {value}"
-        else:
-            return f"Failed to add keyframe for {property_name} at frame {frame}"
-        
-    except Exception as e:
-        return f"Error adding keyframe: {str(e)}"
+    return keyframe_operations.add_keyframe(resolve, timeline_item_id, property_name, frame, value)
 
 @mcp.tool()
 def modify_keyframe(timeline_item_id: str, property_name: str, frame: int, new_value: float = None, new_frame: int = None) -> str:
@@ -2995,106 +2643,7 @@ def modify_keyframe(timeline_item_id: str, property_name: str, frame: int, new_v
         new_value: Optional new value for the keyframe
         new_frame: Optional new frame position for the keyframe
     """
-    if resolve is None:
-        return "Error: Not connected to DaVinci Resolve"
-    
-    project_manager = resolve.GetProjectManager()
-    if not project_manager:
-        return "Error: Failed to get Project Manager"
-    
-    current_project = project_manager.GetCurrentProject()
-    if not current_project:
-        return "Error: No project currently open"
-    
-    current_timeline = current_project.GetCurrentTimeline()
-    if not current_timeline:
-        return "Error: No timeline currently active"
-    
-    if new_value is None and new_frame is None:
-        return "Error: Must specify at least one of new_value or new_frame"
-    
-    try:
-        # Find the timeline item by ID
-        video_track_count = current_timeline.GetTrackCount("video")
-        audio_track_count = current_timeline.GetTrackCount("audio")
-        
-        timeline_item = None
-        
-        # Search video tracks
-        for track_index in range(1, video_track_count + 1):
-            items = current_timeline.GetItemListInTrack("video", track_index)
-            if items:
-                for item in items:
-                    if str(item.GetUniqueId()) == timeline_item_id:
-                        timeline_item = item
-                        break
-            if timeline_item:
-                break
-        
-        # If not found, search audio tracks
-        if not timeline_item:
-            for track_index in range(1, audio_track_count + 1):
-                items = current_timeline.GetItemListInTrack("audio", track_index)
-                if items:
-                    for item in items:
-                        if str(item.GetUniqueId()) == timeline_item_id:
-                            timeline_item = item
-                            break
-                if timeline_item:
-                    break
-        
-        if not timeline_item:
-            return f"Error: Timeline item with ID '{timeline_item_id}' not found"
-        
-        # Check if the property has keyframes
-        keyframe_count = timeline_item.GetKeyframeCount(property_name)
-        if keyframe_count == 0:
-            return f"Error: No keyframes found for property '{property_name}'"
-        
-        # Find the keyframe at the specified frame
-        keyframe_index = -1
-        for i in range(keyframe_count):
-            kf = timeline_item.GetKeyframeAtIndex(property_name, i)
-            if kf["frame"] == frame:
-                keyframe_index = i
-                break
-        
-        if keyframe_index == -1:
-            return f"Error: No keyframe found at frame {frame} for property '{property_name}'"
-        
-        if new_frame is not None:
-            # Check if new frame is within the item's range
-            start_frame = timeline_item.GetStart()
-            end_frame = timeline_item.GetEnd()
-            
-            if new_frame < start_frame or new_frame > end_frame:
-                return f"Error: New frame {new_frame} is outside the item's range ({start_frame} to {end_frame})"
-                
-            # Delete the keyframe at the current frame
-            current_value = timeline_item.GetPropertyAtKeyframeIndex(property_name, keyframe_index)
-            timeline_item.DeleteKeyframe(property_name, frame)
-            
-            # Add a new keyframe at the new frame position with the current value (or new value if specified)
-            value = new_value if new_value is not None else current_value
-            result = timeline_item.AddKeyframe(property_name, new_frame, value)
-            
-            if result:
-                return f"Successfully moved keyframe for {property_name} from frame {frame} to frame {new_frame}"
-            else:
-                return f"Failed to move keyframe for {property_name}"
-        else:
-            # Only changing the value, not the frame position
-            # We need to delete and re-add the keyframe with the new value
-            timeline_item.DeleteKeyframe(property_name, frame)
-            result = timeline_item.AddKeyframe(property_name, frame, new_value)
-            
-            if result:
-                return f"Successfully updated keyframe value for {property_name} at frame {frame} to {new_value}"
-            else:
-                return f"Failed to update keyframe value for {property_name} at frame {frame}"
-        
-    except Exception as e:
-        return f"Error modifying keyframe: {str(e)}"
+    return keyframe_operations.modify_keyframe(resolve, timeline_item_id, property_name, frame, new_value, new_frame)
 
 @mcp.tool()
 def delete_keyframe(timeline_item_id: str, property_name: str, frame: int) -> str:
@@ -3105,80 +2654,7 @@ def delete_keyframe(timeline_item_id: str, property_name: str, frame: int) -> st
         property_name: The name of the property with keyframe to delete
         frame: Frame position of the keyframe to delete
     """
-    if resolve is None:
-        return "Error: Not connected to DaVinci Resolve"
-    
-    project_manager = resolve.GetProjectManager()
-    if not project_manager:
-        return "Error: Failed to get Project Manager"
-    
-    current_project = project_manager.GetCurrentProject()
-    if not current_project:
-        return "Error: No project currently open"
-    
-    current_timeline = current_project.GetCurrentTimeline()
-    if not current_timeline:
-        return "Error: No timeline currently active"
-    
-    try:
-        # Find the timeline item by ID
-        video_track_count = current_timeline.GetTrackCount("video")
-        audio_track_count = current_timeline.GetTrackCount("audio")
-        
-        timeline_item = None
-        
-        # Search video tracks
-        for track_index in range(1, video_track_count + 1):
-            items = current_timeline.GetItemListInTrack("video", track_index)
-            if items:
-                for item in items:
-                    if str(item.GetUniqueId()) == timeline_item_id:
-                        timeline_item = item
-                        break
-            if timeline_item:
-                break
-        
-        # If not found, search audio tracks
-        if not timeline_item:
-            for track_index in range(1, audio_track_count + 1):
-                items = current_timeline.GetItemListInTrack("audio", track_index)
-                if items:
-                    for item in items:
-                        if str(item.GetUniqueId()) == timeline_item_id:
-                            timeline_item = item
-                            break
-                if timeline_item:
-                    break
-        
-        if not timeline_item:
-            return f"Error: Timeline item with ID '{timeline_item_id}' not found"
-        
-        # Check if the property has keyframes
-        keyframe_count = timeline_item.GetKeyframeCount(property_name)
-        if keyframe_count == 0:
-            return f"Error: No keyframes found for property '{property_name}'"
-        
-        # Check if there's a keyframe at the specified frame
-        keyframe_exists = False
-        for i in range(keyframe_count):
-            kf = timeline_item.GetKeyframeAtIndex(property_name, i)
-            if kf["frame"] == frame:
-                keyframe_exists = True
-                break
-        
-        if not keyframe_exists:
-            return f"Error: No keyframe found at frame {frame} for property '{property_name}'"
-        
-        # Delete the keyframe
-        result = timeline_item.DeleteKeyframe(property_name, frame)
-        
-        if result:
-            return f"Successfully deleted keyframe for {property_name} at frame {frame}"
-        else:
-            return f"Failed to delete keyframe for {property_name} at frame {frame}"
-        
-    except Exception as e:
-        return f"Error deleting keyframe: {str(e)}"
+    return keyframe_operations.delete_keyframe(resolve, timeline_item_id, property_name, frame)
 
 @mcp.tool()
 def set_keyframe_interpolation(timeline_item_id: str, property_name: str, frame: int, interpolation_type: str) -> str:
@@ -3190,104 +2666,7 @@ def set_keyframe_interpolation(timeline_item_id: str, property_name: str, frame:
         frame: Frame position of the keyframe
         interpolation_type: Type of interpolation. Options: 'Linear', 'Bezier', 'Ease-In', 'Ease-Out'
     """
-    if resolve is None:
-        return "Error: Not connected to DaVinci Resolve"
-    
-    project_manager = resolve.GetProjectManager()
-    if not project_manager:
-        return "Error: Failed to get Project Manager"
-    
-    current_project = project_manager.GetCurrentProject()
-    if not current_project:
-        return "Error: No project currently open"
-    
-    current_timeline = current_project.GetCurrentTimeline()
-    if not current_timeline:
-        return "Error: No timeline currently active"
-    
-    # Validate interpolation type
-    valid_interpolation_types = ['Linear', 'Bezier', 'Ease-In', 'Ease-Out']
-    if interpolation_type not in valid_interpolation_types:
-        return f"Error: Invalid interpolation type. Must be one of: {', '.join(valid_interpolation_types)}"
-    
-    try:
-        # Find the timeline item by ID
-        video_track_count = current_timeline.GetTrackCount("video")
-        audio_track_count = current_timeline.GetTrackCount("audio")
-        
-        timeline_item = None
-        
-        # Search video tracks
-        for track_index in range(1, video_track_count + 1):
-            items = current_timeline.GetItemListInTrack("video", track_index)
-            if items:
-                for item in items:
-                    if str(item.GetUniqueId()) == timeline_item_id:
-                        timeline_item = item
-                        break
-            if timeline_item:
-                break
-        
-        # If not found, search audio tracks
-        if not timeline_item:
-            for track_index in range(1, audio_track_count + 1):
-                items = current_timeline.GetItemListInTrack("audio", track_index)
-                if items:
-                    for item in items:
-                        if str(item.GetUniqueId()) == timeline_item_id:
-                            timeline_item = item
-                            break
-                if timeline_item:
-                    break
-        
-        if not timeline_item:
-            return f"Error: Timeline item with ID '{timeline_item_id}' not found"
-        
-        # Check if the property has keyframes
-        keyframe_count = timeline_item.GetKeyframeCount(property_name)
-        if keyframe_count == 0:
-            return f"Error: No keyframes found for property '{property_name}'"
-        
-        # Check if there's a keyframe at the specified frame
-        keyframe_exists = False
-        for i in range(keyframe_count):
-            kf = timeline_item.GetKeyframeAtIndex(property_name, i)
-            if kf["frame"] == frame:
-                keyframe_exists = True
-                break
-        
-        if not keyframe_exists:
-            return f"Error: No keyframe found at frame {frame} for property '{property_name}'"
-        
-        # Set the interpolation type
-        interpolation_map = {
-            'Linear': 0,
-            'Bezier': 1,
-            'Ease-In': 2,
-            'Ease-Out': 3
-        }
-        
-        # Get current keyframe value
-        value = None
-        for i in range(keyframe_count):
-            kf = timeline_item.GetKeyframeAtIndex(property_name, i)
-            if kf["frame"] == frame:
-                value = timeline_item.GetPropertyAtKeyframeIndex(property_name, i)
-                break
-        
-        # Delete the old keyframe
-        timeline_item.DeleteKeyframe(property_name, frame)
-        
-        # Add a new keyframe with the same value but different interpolation
-        result = timeline_item.AddKeyframe(property_name, frame, value, interpolation_map[interpolation_type])
-        
-        if result:
-            return f"Successfully set interpolation for {property_name} keyframe at frame {frame} to {interpolation_type}"
-        else:
-            return f"Failed to set interpolation for {property_name} keyframe at frame {frame}"
-        
-    except Exception as e:
-        return f"Error setting keyframe interpolation: {str(e)}"
+    return keyframe_operations.set_keyframe_interpolation(resolve, timeline_item_id, property_name, frame, interpolation_type)
 
 @mcp.tool()
 def enable_keyframes(timeline_item_id: str, keyframe_mode: str = "All") -> str:
@@ -3297,65 +2676,7 @@ def enable_keyframes(timeline_item_id: str, keyframe_mode: str = "All") -> str:
         timeline_item_id: The ID of the timeline item
         keyframe_mode: Keyframe mode to enable. Options: 'All', 'Color', 'Sizing'
     """
-    if resolve is None:
-        return "Error: Not connected to DaVinci Resolve"
-    
-    project_manager = resolve.GetProjectManager()
-    if not project_manager:
-        return "Error: Failed to get Project Manager"
-    
-    current_project = project_manager.GetCurrentProject()
-    if not current_project:
-        return "Error: No project currently open"
-    
-    current_timeline = current_project.GetCurrentTimeline()
-    if not current_timeline:
-        return "Error: No timeline currently active"
-    
-    # Validate keyframe mode
-    valid_keyframe_modes = ['All', 'Color', 'Sizing']
-    if keyframe_mode not in valid_keyframe_modes:
-        return f"Error: Invalid keyframe mode. Must be one of: {', '.join(valid_keyframe_modes)}"
-    
-    try:
-        # Find the timeline item by ID
-        video_track_count = current_timeline.GetTrackCount("video")
-        
-        timeline_item = None
-        
-        # Search video tracks
-        for track_index in range(1, video_track_count + 1):
-            items = current_timeline.GetItemListInTrack("video", track_index)
-            if items:
-                for item in items:
-                    if str(item.GetUniqueId()) == timeline_item_id:
-                        timeline_item = item
-                        break
-            if timeline_item:
-                break
-        
-        if not timeline_item:
-            return f"Error: Video timeline item with ID '{timeline_item_id}' not found"
-        
-        if timeline_item.GetType() != "Video":
-            return f"Error: Timeline item with ID '{timeline_item_id}' is not a video item"
-        
-        # Set the keyframe mode
-        keyframe_mode_map = {
-            'All': 0,
-            'Color': 1,
-            'Sizing': 2
-        }
-        
-        result = timeline_item.SetProperty("KeyframeMode", keyframe_mode_map[keyframe_mode])
-        
-        if result:
-            return f"Successfully enabled {keyframe_mode} keyframe mode for timeline item '{timeline_item.GetName()}'"
-        else:
-            return f"Failed to enable {keyframe_mode} keyframe mode for timeline item '{timeline_item.GetName()}'"
-        
-    except Exception as e:
-        return f"Error enabling keyframe mode: {str(e)}"
+    return keyframe_operations.enable_keyframes(resolve, timeline_item_id, keyframe_mode)
 
 # ------------------
 # Color Preset Management
@@ -3364,65 +2685,7 @@ def enable_keyframes(timeline_item_id: str, keyframe_mode: str = "All") -> str:
 @mcp.resource("resolve://color/presets")
 def get_color_presets() -> List[Dict[str, Any]]:
     """Get all available color presets in the current project."""
-    if resolve is None:
-        return [{"error": "Not connected to DaVinci Resolve"}]
-    
-    project_manager = resolve.GetProjectManager()
-    if not project_manager:
-        return [{"error": "Failed to get Project Manager"}]
-    
-    current_project = project_manager.GetCurrentProject()
-    if not current_project:
-        return [{"error": "No project currently open"}]
-    
-    # Switch to color page to access presets
-    current_page = resolve.GetCurrentPage()
-    if current_page != "color":
-        resolve.OpenPage("color")
-    
-    try:
-        # Get gallery
-        gallery = current_project.GetGallery()
-        if not gallery:
-            return [{"error": "Failed to get gallery"}]
-        
-        # Get all albums
-        albums = gallery.GetAlbums()
-        if not albums:
-            return [{"info": "No albums found in gallery"}]
-        
-        result = []
-        for album in albums:
-            # Get stills in the album
-            stills = album.GetStills()
-            album_info = {
-                "name": album.GetName(),
-                "stills": []
-            }
-            
-            if stills:
-                for still in stills:
-                    still_info = {
-                        "id": still.GetUniqueId(),
-                        "label": still.GetLabel(),
-                        "timecode": still.GetTimecode(),
-                        "isGrabbed": still.IsGrabbed()
-                    }
-                    album_info["stills"].append(still_info)
-            
-            result.append(album_info)
-        
-        # Return to the original page if we switched
-        if current_page != "color":
-            resolve.OpenPage(current_page)
-            
-        return result
-    
-    except Exception as e:
-        # Return to the original page if we switched
-        if current_page != "color":
-            resolve.OpenPage(current_page)
-        return [{"error": f"Error retrieving color presets: {str(e)}"}]
+    return gallery_operations.get_color_presets(resolve)
 
 @mcp.tool()
 def save_color_preset(clip_name: str = None, preset_name: str = None, album_name: str = "DaVinci Resolve") -> str:
@@ -3433,103 +2696,7 @@ def save_color_preset(clip_name: str = None, preset_name: str = None, album_name
         preset_name: Name to give the preset (uses clip name if None)
         album_name: Album to save the preset to (default: "DaVinci Resolve")
     """
-    if resolve is None:
-        return "Error: Not connected to DaVinci Resolve"
-    
-    project_manager = resolve.GetProjectManager()
-    if not project_manager:
-        return "Error: Failed to get Project Manager"
-    
-    current_project = project_manager.GetCurrentProject()
-    if not current_project:
-        return "Error: No project currently open"
-    
-    # Switch to color page
-    current_page = resolve.GetCurrentPage()
-    if current_page != "color":
-        resolve.OpenPage("color")
-    
-    try:
-        # Get the current timeline
-        current_timeline = current_project.GetCurrentTimeline()
-        if not current_timeline:
-            return "Error: No timeline is currently open"
-        
-        # Get the specific clip or current clip
-        if clip_name:
-            # Find the clip by name in the timeline
-            timeline_clips = current_timeline.GetItemListInTrack("video", 1)
-            target_clip = None
-            
-            for clip in timeline_clips:
-                if clip.GetName() == clip_name:
-                    target_clip = clip
-                    break
-            
-            if not target_clip:
-                return f"Error: Clip '{clip_name}' not found in the timeline"
-            
-            # Select the clip
-            current_timeline.SetCurrentSelectedItem(target_clip)
-        
-        # Get gallery
-        gallery = current_project.GetGallery()
-        if not gallery:
-            return "Error: Failed to get gallery"
-        
-        # Get or create album
-        album = None
-        albums = gallery.GetAlbums()
-        
-        if albums:
-            for a in albums:
-                if a.GetName() == album_name:
-                    album = a
-                    break
-        
-        if not album:
-            # Create a new album if it doesn't exist
-            album = gallery.CreateAlbum(album_name)
-            if not album:
-                return f"Error: Failed to create album '{album_name}'"
-        
-        # Set preset name if specified
-        final_preset_name = preset_name
-        if not final_preset_name:
-            if clip_name:
-                final_preset_name = f"{clip_name} Preset"
-            else:
-                # Get current clip name if available
-                current_clip = current_timeline.GetCurrentVideoItem()
-                if current_clip:
-                    final_preset_name = f"{current_clip.GetName()} Preset"
-                else:
-                    final_preset_name = f"Preset {len(album.GetStills()) + 1}"
-        
-        # Capture still
-        result = gallery.GrabStill()
-        
-        if not result:
-            return "Error: Failed to grab still for the preset"
-        
-        # Get the still that was just created
-        stills = album.GetStills()
-        if stills:
-            latest_still = stills[-1]  # Assume the last one is the one we just grabbed
-            # Set the label
-            latest_still.SetLabel(final_preset_name)
-        
-        # Return to the original page if we switched
-        if current_page != "color":
-            resolve.OpenPage(current_page)
-        
-        return f"Successfully saved color preset '{final_preset_name}' to album '{album_name}'"
-    
-    except Exception as e:
-        # Return to the original page if we switched
-        if current_page != "color":
-            resolve.OpenPage(current_page)
-        return f"Error saving color preset: {str(e)}"
+    return gallery_operations.save_color_preset(resolve, clip_name, preset_name, album_name)
 
 @mcp.tool()
 def apply_color_preset(preset_id: str = None, preset_name: str = None, 
@@ -3542,107 +2709,9 @@ def apply_color_preset(preset_id: str = None, preset_name: str = None,
         clip_name: Name of the clip to apply preset to (uses current clip if None)
         album_name: Album containing the preset (default: "DaVinci Resolve")
     """
-    if resolve is None:
-        return "Error: Not connected to DaVinci Resolve"
-    
-    if not preset_id and not preset_name:
-        return "Error: Must provide either preset_id or preset_name"
-    
-    project_manager = resolve.GetProjectManager()
-    if not project_manager:
-        return "Error: Failed to get Project Manager"
-    
-    current_project = project_manager.GetCurrentProject()
-    if not current_project:
-        return "Error: No project currently open"
-    
-    # Switch to color page
-    current_page = resolve.GetCurrentPage()
-    if current_page != "color":
-        resolve.OpenPage("color")
-    
-    try:
-        # Get the current timeline
-        current_timeline = current_project.GetCurrentTimeline()
-        if not current_timeline:
-            return "Error: No timeline is currently open"
+    return gallery_operations.apply_color_preset(resolve, preset_id, preset_name, clip_name, album_name)
         
-        # Get the specific clip or current clip
-        if clip_name:
-            # Find the clip by name in the timeline
-            timeline_clips = current_timeline.GetItemListInTrack("video", 1)
-            target_clip = None
-            
-            for clip in timeline_clips:
-                if clip.GetName() == clip_name:
-                    target_clip = clip
-                    break
-            
-            if not target_clip:
-                return f"Error: Clip '{clip_name}' not found in the timeline"
-            
-            # Select the clip
-            current_timeline.SetCurrentSelectedItem(target_clip)
-        
-        # Get gallery
-        gallery = current_project.GetGallery()
-        if not gallery:
-            return "Error: Failed to get gallery"
-        
-        # Find the album
-        album = None
-        albums = gallery.GetAlbums()
-        
-        if albums:
-            for a in albums:
-                if a.GetName() == album_name:
-                    album = a
-                    break
-        
-        if not album:
-            return f"Error: Album '{album_name}' not found"
-        
-        # Find the still to apply
-        stills = album.GetStills()
-        if not stills:
-            return f"Error: No presets found in album '{album_name}'"
-        
-        target_still = None
-        
-        if preset_id:
-            # Find by ID
-            for still in stills:
-                if still.GetUniqueId() == preset_id:
-                    target_still = still
-                    break
-        elif preset_name:
-            # Find by name
-            for still in stills:
-                if still.GetLabel() == preset_name:
-                    target_still = still
-                    break
-        
-        if not target_still:
-            search_term = preset_id if preset_id else preset_name
-            return f"Error: Preset '{search_term}' not found in album '{album_name}'"
-        
-        # Apply the preset
-        result = target_still.ApplyToClip()
-        
-        # Return to the original page if we switched
-        if current_page != "color":
-            resolve.OpenPage(current_page)
-        
-        if result:
-            return f"Successfully applied color preset to {'specified clip' if clip_name else 'current clip'}"
-        else:
-            return f"Failed to apply color preset"
-    
-    except Exception as e:
-        # Return to the original page if we switched
-        if current_page != "color":
-            resolve.OpenPage(current_page)
-        return f"Error applying color preset: {str(e)}"
+
 
 @mcp.tool()
 def delete_color_preset(preset_id: str = None, preset_name: str = None, 
@@ -3654,85 +2723,7 @@ def delete_color_preset(preset_id: str = None, preset_name: str = None,
         preset_name: Name of the preset to delete (searches in album)
         album_name: Album containing the preset (default: "DaVinci Resolve")
     """
-    if resolve is None:
-        return "Error: Not connected to DaVinci Resolve"
-    
-    if not preset_id and not preset_name:
-        return "Error: Must provide either preset_id or preset_name"
-    
-    project_manager = resolve.GetProjectManager()
-    if not project_manager:
-        return "Error: Failed to get Project Manager"
-    
-    current_project = project_manager.GetCurrentProject()
-    if not current_project:
-        return "Error: No project currently open"
-    
-    # Switch to color page
-    current_page = resolve.GetCurrentPage()
-    if current_page != "color":
-        resolve.OpenPage("color")
-    
-    try:
-        # Get gallery
-        gallery = current_project.GetGallery()
-        if not gallery:
-            return "Error: Failed to get gallery"
-        
-        # Find the album
-        album = None
-        albums = gallery.GetAlbums()
-        
-        if albums:
-            for a in albums:
-                if a.GetName() == album_name:
-                    album = a
-                    break
-        
-        if not album:
-            return f"Error: Album '{album_name}' not found"
-        
-        # Find the still to delete
-        stills = album.GetStills()
-        if not stills:
-            return f"Error: No presets found in album '{album_name}'"
-        
-        target_still = None
-        
-        if preset_id:
-            # Find by ID
-            for still in stills:
-                if still.GetUniqueId() == preset_id:
-                    target_still = still
-                    break
-        elif preset_name:
-            # Find by name
-            for still in stills:
-                if still.GetLabel() == preset_name:
-                    target_still = still
-                    break
-        
-        if not target_still:
-            search_term = preset_id if preset_id else preset_name
-            return f"Error: Preset '{search_term}' not found in album '{album_name}'"
-        
-        # Delete the preset
-        result = album.DeleteStill(target_still)
-        
-        # Return to the original page if we switched
-        if current_page != "color":
-            resolve.OpenPage(current_page)
-        
-        if result:
-            return f"Successfully deleted color preset from album '{album_name}'"
-        else:
-            return f"Failed to delete color preset"
-    
-    except Exception as e:
-        # Return to the original page if we switched
-        if current_page != "color":
-            resolve.OpenPage(current_page)
-        return f"Error deleting color preset: {str(e)}"
+    return gallery_operations.delete_color_preset(resolve, preset_id, preset_name, album_name)
 
 @mcp.tool()
 def create_color_preset_album(album_name: str) -> str:
@@ -3741,56 +2732,7 @@ def create_color_preset_album(album_name: str) -> str:
     Args:
         album_name: Name for the new album
     """
-    if resolve is None:
-        return "Error: Not connected to DaVinci Resolve"
-    
-    project_manager = resolve.GetProjectManager()
-    if not project_manager:
-        return "Error: Failed to get Project Manager"
-    
-    current_project = project_manager.GetCurrentProject()
-    if not current_project:
-        return "Error: No project currently open"
-    
-    # Switch to color page
-    current_page = resolve.GetCurrentPage()
-    if current_page != "color":
-        resolve.OpenPage("color")
-    
-    try:
-        # Get gallery
-        gallery = current_project.GetGallery()
-        if not gallery:
-            return "Error: Failed to get gallery"
-        
-        # Check if album already exists
-        albums = gallery.GetAlbums()
-        
-        if albums:
-            for a in albums:
-                if a.GetName() == album_name:
-                    # Return to the original page if we switched
-                    if current_page != "color":
-                        resolve.OpenPage(current_page)
-                    return f"Album '{album_name}' already exists"
-        
-        # Create a new album
-        album = gallery.CreateAlbum(album_name)
-        
-        # Return to the original page if we switched
-        if current_page != "color":
-            resolve.OpenPage(current_page)
-        
-        if album:
-            return f"Successfully created album '{album_name}'"
-        else:
-            return f"Failed to create album '{album_name}'"
-    
-    except Exception as e:
-        # Return to the original page if we switched
-        if current_page != "color":
-            resolve.OpenPage(current_page)
-        return f"Error creating album: {str(e)}"
+    return gallery_operations.create_color_preset_album(resolve, album_name)
 
 @mcp.tool()
 def delete_color_preset_album(album_name: str) -> str:
@@ -3799,61 +2741,7 @@ def delete_color_preset_album(album_name: str) -> str:
     Args:
         album_name: Name of the album to delete
     """
-    if resolve is None:
-        return "Error: Not connected to DaVinci Resolve"
-    
-    project_manager = resolve.GetProjectManager()
-    if not project_manager:
-        return "Error: Failed to get Project Manager"
-    
-    current_project = project_manager.GetCurrentProject()
-    if not current_project:
-        return "Error: No project currently open"
-    
-    # Switch to color page
-    current_page = resolve.GetCurrentPage()
-    if current_page != "color":
-        resolve.OpenPage("color")
-    
-    try:
-        # Get gallery
-        gallery = current_project.GetGallery()
-        if not gallery:
-            return "Error: Failed to get gallery"
-        
-        # Find the album
-        album = None
-        albums = gallery.GetAlbums()
-        
-        if albums:
-            for a in albums:
-                if a.GetName() == album_name:
-                    album = a
-                    break
-        
-        if not album:
-            # Return to the original page if we switched
-            if current_page != "color":
-                resolve.OpenPage(current_page)
-            return f"Error: Album '{album_name}' not found"
-        
-        # Delete the album
-        result = gallery.DeleteAlbum(album)
-        
-        # Return to the original page if we switched
-        if current_page != "color":
-            resolve.OpenPage(current_page)
-        
-        if result:
-            return f"Successfully deleted album '{album_name}'"
-        else:
-            return f"Failed to delete album '{album_name}'"
-    
-    except Exception as e:
-        # Return to the original page if we switched
-        if current_page != "color":
-            resolve.OpenPage(current_page)
-        return f"Error deleting album: {str(e)}"
+    return gallery_operations.delete_color_preset_album(resolve, album_name)
 
 @mcp.tool()
 def export_lut(clip_name: str = None, 
@@ -3868,165 +2756,12 @@ def export_lut(clip_name: str = None,
         lut_format: Format of the LUT. Options: 'Cube', 'Davinci', '3dl', 'Panasonic'
         lut_size: Size of the LUT. Options: '17Point', '33Point', '65Point'
     """
-    if resolve is None:
-        return "Error: Not connected to DaVinci Resolve"
-    
-    project_manager = resolve.GetProjectManager()
-    if not project_manager:
-        return "Error: Failed to get Project Manager"
-    
-    current_project = project_manager.GetCurrentProject()
-    if not current_project:
-        return "Error: No project currently open"
-    
-    # Switch to color page
-    current_page = resolve.GetCurrentPage()
-    if current_page != "color":
-        resolve.OpenPage("color")
-    
-    try:
-        # Get the current timeline
-        current_timeline = current_project.GetCurrentTimeline()
-        if not current_timeline:
-            return "Error: No timeline is currently open"
-        
-        # Get the specific clip or current clip
-        if clip_name:
-            # Find the clip by name in the timeline
-            timeline_clips = current_timeline.GetItemListInTrack("video", 1)
-            target_clip = None
-            
-            for clip in timeline_clips:
-                if clip.GetName() == clip_name:
-                    target_clip = clip
-                    break
-            
-            if not target_clip:
-                return f"Error: Clip '{clip_name}' not found in the timeline"
-            
-            # Select the clip
-            current_timeline.SetCurrentSelectedItem(target_clip)
-        
-        # Generate export path if not provided
-        if not export_path:
-            import tempfile
-            clip_name_safe = clip_name if clip_name else "current_clip"
-            clip_name_safe = clip_name_safe.replace(' ', '_').replace(':', '-')
-            
-            extension = ".cube"
-            if lut_format.lower() == "davinci":
-                extension = ".ilut"
-            elif lut_format.lower() == "3dl":
-                extension = ".3dl"
-            elif lut_format.lower() == "panasonic":
-                extension = ".vlut"
-                
-            export_path = os.path.join(tempfile.gettempdir(), f"{clip_name_safe}_lut{extension}")
-        
-        # Validate LUT format
-        valid_formats = ['Cube', 'Davinci', '3dl', 'Panasonic']
-        if lut_format not in valid_formats:
-            return f"Error: Invalid LUT format. Must be one of: {', '.join(valid_formats)}"
-        
-        # Validate LUT size
-        valid_sizes = ['17Point', '33Point', '65Point']
-        if lut_size not in valid_sizes:
-            return f"Error: Invalid LUT size. Must be one of: {', '.join(valid_sizes)}"
-        
-        # Map format string to numeric value expected by DaVinci Resolve API
-        format_map = {
-            'Cube': 0,
-            'Davinci': 1,
-            '3dl': 2,
-            'Panasonic': 3
-        }
-        
-        # Map size string to numeric value
-        size_map = {
-            '17Point': 0,
-            '33Point': 1,
-            '65Point': 2
-        }
-        
-        # Get current clip
-        current_clip = current_timeline.GetCurrentVideoItem()
-        if not current_clip:
-            return "Error: No clip is currently selected"
-        
-        # Create a directory for the export path if it doesn't exist
-        export_dir = os.path.dirname(export_path)
-        if export_dir and not os.path.exists(export_dir):
-            os.makedirs(export_dir, exist_ok=True)
-        
-        # Export the LUT
-        colorpage = resolve.GetCurrentPage() == "color"
-        if not colorpage:
-            resolve.OpenPage("color")
-        
-        # Access Color page functionality 
-        result = current_project.ExportCurrentGradeAsLUT(
-            format_map[lut_format], 
-            size_map[lut_size], 
-            export_path
-        )
-        
-        # Return to the original page if we switched
-        if current_page != "color":
-            resolve.OpenPage(current_page)
-        
-        if result:
-            return f"Successfully exported LUT to '{export_path}' in {lut_format} format with {lut_size} size"
-        else:
-            return f"Failed to export LUT"
-    
-    except Exception as e:
-        # Return to the original page if we switched
-        if current_page != "color":
-            resolve.OpenPage(current_page)
-        return f"Error exporting LUT: {str(e)}"
+    return export_operations.export_lut(resolve, clip_name, export_path, lut_format, lut_size)
 
 @mcp.resource("resolve://color/lut-formats")
 def get_lut_formats() -> Dict[str, Any]:
     """Get available LUT export formats and sizes."""
-    formats = {
-        "formats": [
-            {
-                "name": "Cube",
-                "extension": ".cube",
-                "description": "Industry standard LUT format supported by most applications"
-            },
-            {
-                "name": "Davinci",
-                "extension": ".ilut",
-                "description": "DaVinci Resolve's native LUT format"
-            },
-            {
-                "name": "3dl",
-                "extension": ".3dl",
-                "description": "ASSIMILATE SCRATCH and some Autodesk applications"
-            },
-            {
-                "name": "Panasonic",
-                "extension": ".vlut",
-                "description": "Panasonic VariCam and other Panasonic cameras"
-            }
-        ],
-        "sizes": [
-            {
-                "name": "17Point",
-                "description": "Smaller file size, less precision (17x17x17)"
-            },
-            {
-                "name": "33Point",
-                "description": "Standard size with good balance of precision and file size (33x33x33)"
-            },
-            {
-                "name": "65Point",
-                "description": "Highest precision but larger file size (65x65x65)"
-            }
-        ]
-    }
-    return formats
+    return export_operations.get_lut_formats(resolve)
 
 @mcp.tool()
 def export_all_powergrade_luts(export_dir: str) -> str:
@@ -4035,97 +2770,7 @@ def export_all_powergrade_luts(export_dir: str) -> str:
     Args:
         export_dir: Directory to save the exported LUTs
     """
-    if resolve is None:
-        return "Error: Not connected to DaVinci Resolve"
-    
-    project_manager = resolve.GetProjectManager()
-    if not project_manager:
-        return "Error: Failed to get Project Manager"
-    
-    current_project = project_manager.GetCurrentProject()
-    if not current_project:
-        return "Error: No project currently open"
-    
-    # Switch to color page
-    current_page = resolve.GetCurrentPage()
-    if current_page != "color":
-        resolve.OpenPage("color")
-    
-    try:
-        # Get gallery
-        gallery = current_project.GetGallery()
-        if not gallery:
-            return "Error: Failed to get gallery"
-        
-        # Get PowerGrade album
-        powergrade_album = None
-        albums = gallery.GetAlbums()
-        
-        if albums:
-            for album in albums:
-                if album.GetName() == "PowerGrade":
-                    powergrade_album = album
-                    break
-        
-        if not powergrade_album:
-            return "Error: PowerGrade album not found"
-        
-        # Get all stills in the PowerGrade album
-        stills = powergrade_album.GetStills()
-        if not stills:
-            return "Error: No stills found in PowerGrade album"
-        
-        # Create export directory if it doesn't exist
-        if not os.path.exists(export_dir):
-            os.makedirs(export_dir, exist_ok=True)
-        
-        # Export each still as a LUT
-        exported_count = 0
-        failed_stills = []
-        
-        for still in stills:
-            still_name = still.GetLabel()
-            if not still_name:
-                still_name = f"PowerGrade_{still.GetUniqueId()}"
-            
-            # Create safe filename
-            safe_name = ''.join(c if c.isalnum() or c in ['-', '_'] else '_' for c in still_name)
-            lut_path = os.path.join(export_dir, f"{safe_name}.cube")
-            
-            # Apply the still to the current clip
-            current_clip = current_timeline.GetCurrentVideoItem()
-            if not current_clip:
-                failed_stills.append(f"{still_name} (no clip selected)")
-                continue
-            
-            # Apply the grade from the still
-            applied = still.ApplyToClip()
-            if not applied:
-                failed_stills.append(f"{still_name} (could not apply grade)")
-                continue
-            
-            # Export as LUT
-            result = current_project.ExportCurrentGradeAsLUT(0, 1, lut_path)  # Cube format, 33-point
-            
-            if result:
-                exported_count += 1
-            else:
-                failed_stills.append(f"{still_name} (export failed)")
-        
-        # Return to the original page if we switched
-        if current_page != "color":
-            resolve.OpenPage(current_page)
-        
-        if failed_stills:
-            return f"Exported {exported_count} LUTs to '{export_dir}'. Failed to export: {', '.join(failed_stills)}"
-        else:
-            return f"Successfully exported all {exported_count} PowerGrade LUTs to '{export_dir}'"
-    
-    except Exception as e:
-        # Return to the original page if we switched
-        if current_page != "color":
-            resolve.OpenPage(current_page)
-        return f"Error exporting PowerGrade LUTs: {str(e)}"
+    return export_operations.export_all_powergrade_luts(resolve, export_dir)
 
 # ------------------
 # Object Inspection

@@ -21,6 +21,10 @@ from . import smart_editing
 from . import ai_director
 from . import jump_cut
 from . import whisper_node
+from . import transcription_operations
+from . import gallery_operations
+from . import keyframe_operations
+from . import export_operations
 
 __all__ = [
     # Core
@@ -38,4 +42,9 @@ __all__ = [
     "ai_director",
     "jump_cut",
     "whisper_node",
+    # New extracted modules
+    "transcription_operations",
+    "gallery_operations",
+    "keyframe_operations",
+    "export_operations",
 ]

@@ -69,13 +69,17 @@ class MockFolder:
     def AddSubFolder(self, folder: 'MockFolder'):
         self._subfolders.append(folder)
 
+    def ClearTranscription(self) -> bool:
+        return True
+
 
 class MockMediaPool:
     """Mock Media Pool."""
     
-    def __init__(self):
+    def __init__(self, project=None):
         self._root_folder = MockFolder("Master")
         self._current_folder = self._root_folder
+        self._project = project
     
     def GetRootFolder(self) -> MockFolder:
         return self._root_folder
@@ -105,7 +109,21 @@ class MockMediaPool:
         return clips  # Simplified
     
     def CreateEmptyTimeline(self, name: str) -> 'MockTimeline':
-        return MockTimeline(name)
+        timeline = MockTimeline(name)
+        
+        # Inherit settings if linked to a project
+        if self._project:
+            p_settings = self._project._settings
+            if "timelineFrameRate" in p_settings:
+                timeline.SetSetting("timelineFrameRate", p_settings["timelineFrameRate"])
+            if "timelineResolutionWidth" in p_settings:
+                timeline.SetSetting("timelineResolutionWidth", p_settings["timelineResolutionWidth"])
+            if "timelineResolutionHeight" in p_settings:
+                timeline.SetSetting("timelineResolutionHeight", p_settings["timelineResolutionHeight"])
+            
+            self._project.AddTimeline(timeline)
+            
+        return timeline
 
 
 class MockTimelineItem:
@@ -116,9 +134,22 @@ class MockTimelineItem:
         self._start = start
         self._end = end
         self._fusion_comps = []
+        self._keyframes = {}  # {property: [{frame: 10, value: 1.0, interp: 0}]}
+        self._properties = {}
     
     def GetName(self) -> str:
         return self._name
+        
+    def GetUniqueId(self) -> str:
+        return f"id_{self._name}"
+        
+    def GetType(self) -> str:
+        # Simple heuristic based on name or tracks can be added later
+        # For now assume Video unless specified
+        return "Video"
+        
+    def GetMediaType(self) -> str:
+        return "Video"
     
     def GetStart(self) -> int:
         return self._start
@@ -139,6 +170,46 @@ class MockTimelineItem:
     
     def AddFusionComp(self) -> bool:
         self._fusion_comps.append(MagicMock())
+        return True
+        
+    def GetKeyframeCount(self, prop: str) -> int:
+        return len(self._keyframes.get(prop, []))
+        
+    def GetKeyframeAtIndex(self, prop: str, index: int) -> Dict:
+        if prop in self._keyframes and 0 <= index < len(self._keyframes[prop]):
+            return self._keyframes[prop][index]
+        return {}
+        
+    def GetPropertyAtKeyframeIndex(self, prop: str, index: int) -> float:
+        if prop in self._keyframes and 0 <= index < len(self._keyframes[prop]):
+            return self._keyframes[prop][index].get("value", 0.0)
+        return 0.0
+        
+    def AddKeyframe(self, prop: str, frame: int, value: float, interp: int = 0) -> bool:
+        if prop not in self._keyframes:
+            self._keyframes[prop] = []
+        
+        # Check if exists and update
+        for kf in self._keyframes[prop]:
+            if kf["frame"] == frame:
+                kf["value"] = value
+                kf["interp"] = interp
+                return True
+                
+        self._keyframes[prop].append({"frame": frame, "value": value, "interp": interp})
+        # Sort by frame
+        self._keyframes[prop].sort(key=lambda x: x["frame"])
+        return True
+        
+    def DeleteKeyframe(self, prop: str, frame: int) -> bool:
+        if prop in self._keyframes:
+            initial_len = len(self._keyframes[prop])
+            self._keyframes[prop] = [kf for kf in self._keyframes[prop] if kf["frame"] != frame]
+            return len(self._keyframes[prop]) < initial_len
+        return False
+        
+    def SetProperty(self, key: str, value: Any) -> bool:
+        self._properties[key] = value
         return True
 
 
@@ -197,12 +268,21 @@ class MockTimeline:
             tracks.pop(index - 1)
             return True
         return False
+        
+    def GetIsTrackEnabled(self, track_type: str, index: int) -> bool:
+        return True
+    
+    def GetStartTimecode(self) -> str:
+        return "01:00:00:00"
+        
+    def SetStartTimecode(self, timecode: str) -> bool:
+        return True
     
     def GetMarkers(self) -> Dict:
         return self._markers
     
-    def AddMarker(self, frame: int, color: str, name: str, note: str = "") -> bool:
-        self._markers[frame] = {"color": color, "name": name, "note": note}
+    def AddMarker(self, frame: int, color: str, name: str, note: str = "", duration: int = 1, customData: str = "") -> bool:
+        self._markers[frame] = {"color": color, "name": name, "note": note, "duration": duration, "customData": customData}
         return True
     
     def GetStartFrame(self) -> int:
@@ -217,13 +297,100 @@ class MockTimeline:
     def InsertFusionTitleIntoTimeline(self, name: str) -> bool:
         return True
 
+    def GetCurrentVideoItem(self):
+        # Return the first item in the first video track if available
+        if self._video_tracks and self._video_tracks[0]:
+            return self._video_tracks[0][0]
+        return None
+        
+    def SetCurrentSelectedItem(self, item) -> bool:
+        return True
+
+
+class MockStill:
+    """Mock Gallery Still."""
+    def __init__(self, unique_id: str, label: str):
+        self._id = unique_id
+        self._label = label
+    
+    def GetUniqueId(self) -> str:
+        return self._id
+    
+    def GetLabel(self) -> str:
+        return self._label
+    
+    def SetLabel(self, label: str) -> bool:
+        self._label = label
+        return True
+        
+    def ApplyToClip(self) -> bool:
+        return True
+        
+    def GetTimecode(self) -> str:
+        return "01:00:00:00"
+        
+    def IsGrabbed(self) -> bool:
+        return True
+
+
+class MockGalleryAlbum:
+    """Mock Gallery Album."""
+    def __init__(self, name: str):
+        self._name = name
+        self._stills = []
+    
+    def GetName(self) -> str:
+        return self._name
+    
+    def GetStills(self) -> List[MockStill]:
+        return self._stills
+    
+    def DeleteStill(self, still: MockStill) -> bool:
+        if still in self._stills:
+            self._stills.remove(still)
+            return True
+        return False
+        
+    def AddStill(self, still: MockStill):
+        self._stills.append(still)
+
+
+class MockGallery:
+    """Mock Gallery."""
+    def __init__(self):
+        self._albums = [MockGalleryAlbum("DaVinci Resolve"), MockGalleryAlbum("PowerGrade")]
+        self._current_album = self._albums[0]
+    
+    def GetAlbums(self) -> List[MockGalleryAlbum]:
+        return self._albums
+    
+    def GetCurrentStillAlbum(self) -> MockGalleryAlbum:
+        return self._current_album
+    
+    def CreateAlbum(self, name: str) -> MockGalleryAlbum:
+        new_album = MockGalleryAlbum(name)
+        self._albums.append(new_album)
+        return new_album
+        
+    def DeleteAlbum(self, album: MockGalleryAlbum) -> bool:
+        if album in self._albums:
+            self._albums.remove(album)
+            return True
+        return False
+        
+    def GrabStill(self) -> bool:
+        still = MockStill(f"id_{len(self._current_album._stills) + 1}", f"Still {len(self._current_album._stills) + 1}")
+        self._current_album.AddStill(still)
+        return True
+
 
 class MockProject:
     """Mock Project."""
     
     def __init__(self, name: str):
         self._name = name
-        self._media_pool = MockMediaPool()
+        self._media_pool = MockMediaPool(self)
+        self._gallery = MockGallery()
         self._timelines = [MockTimeline("Timeline 1")]
         self._current_timeline = self._timelines[0]
         self._settings = {}
@@ -232,8 +399,14 @@ class MockProject:
     def GetName(self) -> str:
         return self._name
     
+    def AddTimeline(self, timeline: MockTimeline):
+        self._timelines.append(timeline)
+    
     def GetMediaPool(self) -> MockMediaPool:
         return self._media_pool
+        
+    def GetGallery(self) -> MockGallery:
+        return self._gallery
     
     def GetTimelineCount(self) -> int:
         return len(self._timelines)
@@ -274,8 +447,17 @@ class MockProject:
     def DeleteAllRenderJobs(self) -> bool:
         self._render_jobs = []
         return True
+        
+    def DeleteTimelines(self, timelines: List[MockTimeline]) -> bool:
+        for timeline in timelines:
+            if timeline in self._timelines:
+                self._timelines.remove(timeline)
+        return True
     
     def LoadRenderPreset(self, name: str) -> bool:
+        return True
+        
+    def ExportCurrentGradeAsLUT(self, format_index: int, size_index: int, path: str) -> bool:
         return True
 
 

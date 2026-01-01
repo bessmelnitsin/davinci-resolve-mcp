@@ -12,6 +12,7 @@ A Model Context Protocol (MCP) server that connects AI coding assistants (Cursor
 ## Features
 
 For a comprehensive list of implemented and planned features, see [docs/FEATURES.md](docs/FEATURES.md).
+For detailed API reference, see [docs/API_REFERENCE.md](docs/API_REFERENCE.md).
 
 ## Requirements
 
@@ -379,7 +380,12 @@ davinci-resolve-mcp/
 │   ├── test_timeline.py    # Feature tests
 │   └── test_connection_visual.py # Visual proof
 ├── src/                    # Source code
-│   ├── api/                # API implementation
+│   ├── api/                # API implementation (Refactored & Modular)
+│   │   ├── gallery_operations.py
+│   │   ├── export_operations.py
+│   │   ├── keyframe_operations.py
+│   │   ├── transcription_operations.py
+│   │   └── ...
 │   ├── features/           # Feature modules
 │   └── utils/              # Utility functions
 └── archive/                # Old logs and unused files

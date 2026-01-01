@@ -29,15 +29,12 @@ def list_media_pool_clips(resolve) -> List[Dict[str, Any]]:
     # Get all clips recursively
     # We use the helper function defined at the end of the file
     # (function resolution happens at potential call time, so this is safe)
-    try:
-        clips = get_all_media_pool_clips(media_pool)
-    except NameError:
-        # Fallback if function is not found (safe guard)
-        root_folder = media_pool.GetRootFolder()
-        clips = root_folder.GetClipList()
+    # try:
+    clips = get_all_media_pool_clips(media_pool)
+    # except NameError:
+    #    root_folder = media_pool.GetRootFolder()
+    #    clips = root_folder.GetClipList()
     
-    # Format clip info
-    clip_info = []
     for clip in clips:
         if clip:
             properties = clip.GetClipProperty()

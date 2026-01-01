@@ -115,7 +115,7 @@ The compatibility columns indicate whether a feature is known to work with speci
 | List Timelines | ✅ | ✅ | ✅ | ⚠️ | ⚠️ | Get all timelines in project - Verified working |
 | Get Current Timeline | ✅ | ✅ | ✅ | ⚠️ | ⚠️ | Get current active timeline |
 | Set Current Timeline | ✅ | ✅ | ✅ | ⚠️ | ⚠️ | Switch to specified timeline - Verified working |
-| Add Timeline Marker | ⚠️ | ⚠️ | ⚠️ | ⚠️ | ⚠️ | Add marker at position - Requires valid frame within timeline bounds |
+| Add Timeline Marker | ✅ | ✅ | ✅ | ⚠️ | ⚠️ | Add marker at position - Verified working |
 | Delete Timeline Marker | ⚠️ | ⚠️ | ⚠️ | ⚠️ | ⚠️ | Delete marker at position - Not verified |
 | Manage Timeline Tracks | ⚠️ | ⚠️ | ⚠️ | ⚠️ | ⚠️ | Add/remove video and audio tracks - Not verified |
 | Get Timeline Items | ⚠️ | ⚠️ | ⚠️ | ⚠️ | ⚠️ | Get clips in timeline - Not verified |
@@ -163,7 +163,7 @@ The compatibility columns indicate whether a feature is known to work with speci
 | Color Correction | ✅ | ✅ | ✅ | ⚠️ | ⚠️ | Adjust color parameters |
 | Get/Set Grades | ✅ | ✅ | ✅ | ⚠️ | ⚠️ | Manage color grades |
 | Node Management | ✅ | ✅ | ✅ | ⚠️ | ⚠️ | Work with node graph - Note: May require clips with existing grade objects |
-| Gallery Operations | ✅ | ✅ | ✅ | ⚠️ | ⚠️ | Save/load looks from gallery |
+| Gallery Operations | ✅ | ✅ | ✅ | ⚠️ | ⚠️ | Save/load looks from gallery - Verified working |
 | Color Wheels | ✅ | ✅ | ✅ | ⚠️ | ⚠️ | Adjust lift/gamma/gain - Note: Requires clips with existing grade objects |
 | Grade Versions | ✅ | ✅ | ✅ | ⚠️ | ⚠️ | Manage color versions |
 | Export Grades | ✅ | ✅ | ✅ | ⚠️ | ⚠️ | Export grades as files |
@@ -322,8 +322,8 @@ The compatibility columns indicate whether a feature is known to work with speci
 | GetRightOffset | ⚠️ | ⚠️ | ⚠️ | ⚠️ | ⚠️ | Get right handle length - Not verified |
 | GetProperty | ⚠️ | ⚠️ | ⚠️ | ⚠️ | ⚠️ | Get clip property - Not verified |
 | SetProperty | ⚠️ | ⚠️ | ⚠️ | ⚠️ | ⚠️ | Change clip property - Not verified |
-| AddMarker | ⚠️ | ⚠️ | ⚠️ | ⚠️ | ⚠️ | Add marker at offset - Not verified |
-| GetMarkers | ⚠️ | ⚠️ | ⚠️ | ⚠️ | ⚠️ | Get all clip markers - Not verified |
+| AddMarker | ✅ | ✅ | ✅ | ⚠️ | ⚠️ | Add marker at offset - Verified working |
+| GetMarkers | ✅ | ✅ | ✅ | ⚠️ | ⚠️ | Get all clip markers - Verified working |
 | DeleteMarkerAtFrame | ⚠️ | ⚠️ | ⚠️ | ⚠️ | ⚠️ | Remove marker at position - Not verified |
 | DeleteMarkersByColor | ⚠️ | ⚠️ | ⚠️ | ⚠️ | ⚠️ | Remove markers by color - Not verified |
 | DeleteAllMarkers | ⚠️ | ⚠️ | ⚠️ | ⚠️ | ⚠️ | Clear all markers - Not verified |
@@ -389,10 +389,10 @@ The compatibility columns indicate whether a feature is known to work with speci
 | GetCurrentAlbum | ⚠️ | ⚠️ | ⚠️ | ⚠️ | ⚠️ | Get active album - Not verified |
 | SetCurrentAlbum | ⚠️ | ⚠️ | ⚠️ | ⚠️ | ⚠️ | Switch to album - Not verified |
 | GetAlbumList | ⚠️ | ⚠️ | ⚠️ | ⚠️ | ⚠️ | List all albums - Not verified |
-| CreateAlbum | ⚠️ | ⚠️ | ⚠️ | ⚠️ | ⚠️ | Create new album - Not verified |
-| DeleteAlbum | ⚠️ | ⚠️ | ⚠️ | ⚠️ | ⚠️ | Remove album - Not verified |
-| GetStillList | ⚠️ | ⚠️ | ⚠️ | ⚠️ | ⚠️ | List album stills - Not verified |
-| DeleteStill | ⚠️ | ⚠️ | ⚠️ | ⚠️ | ⚠️ | Delete still - Not verified |
+| CreateAlbum | ✅ | ✅ | ✅ | ⚠️ | ⚠️ | Create new album - Verified working |
+| DeleteAlbum | ✅ | ✅ | ✅ | ⚠️ | ⚠️ | Remove album - Verified working |
+| GetStillList | ✅ | ✅ | ✅ | ⚠️ | ⚠️ | List album stills - Verified working |
+| DeleteStill | ✅ | ✅ | ✅ | ⚠️ | ⚠️ | Delete still - Verified working |
 | ExportStills | ⚠️ | ⚠️ | ⚠️ | ⚠️ | ⚠️ | Save stills to files - Not verified |
 | ImportStills | ⚠️ | ⚠️ | ⚠️ | ⚠️ | ⚠️ | Load stills from files - Not verified |
 
