@@ -12,16 +12,10 @@ from . import color_operations
 from . import delivery_operations
 
 # Audio & Video effects
-from . import audio_operations
 from . import fairlight_operations
 from . import fusion_operations
 
-# Smart editing & AI
-from . import smart_editing
-from . import ai_director
-from . import jump_cut
-from . import whisper_node
-from . import transcription_operations
+# Other
 from . import gallery_operations
 from . import keyframe_operations
 from . import export_operations
@@ -34,16 +28,9 @@ __all__ = [
     "color_operations",
     "delivery_operations",
     # Audio/Video FX
-    "audio_operations",
     "fairlight_operations",
     "fusion_operations",
-    # Smart editing
-    "smart_editing",
-    "ai_director",
-    "jump_cut",
-    "whisper_node",
-    # New extracted modules
-    "transcription_operations",
+    # Other modules
     "gallery_operations",
     "keyframe_operations",
     "export_operations",

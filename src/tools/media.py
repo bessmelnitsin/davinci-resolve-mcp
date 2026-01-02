@@ -93,16 +93,6 @@ def transcribe_folder_audio(folder_name: str, language: str = "en-US") -> str:
     except Exception as e:
         return f"Error: {e}"
 
-@mcp.tool()
-def clear_folder_transcription_native(folder_name: str) -> str:
-    """Clear native audio transcription for a folder."""
-    resolve = get_resolve()
-    if not resolve: return "Error: Not connected"
-    
-    from src.api.transcription_operations import clear_folder_transcription
-    return clear_folder_transcription(resolve, folder_name)
-
-
 
 @mcp.tool()
 def delete_media(clip_name: str) -> str:

@@ -122,7 +122,7 @@ REM Set environment variables
 echo Setting environment variables...
 set RESOLVE_SCRIPT_API=C:\ProgramData\Blackmagic Design\DaVinci Resolve\Support\Developer\Scripting
 set RESOLVE_SCRIPT_LIB=C:\Program Files\Blackmagic Design\DaVinci Resolve\fusionscript.dll
-set PYTHONPATH=%PYTHONPATH%;%RESOLVE_SCRIPT_API%\Modules
+set PYTHONPATH=%ROOT_DIR%;%RESOLVE_SCRIPT_API%\Modules
 
 REM Add venv Scripts to PATH so uv and other tools can be found
 set PATH=%VENV_DIR%\Scripts;%PATH%

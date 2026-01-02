@@ -8,8 +8,6 @@ from src.server_instance import mcp
 from src.context import get_resolve
 from src.api.media_operations import append_clips_to_timeline as append_impl
 from src.api.media_operations import create_timeline_from_clips as create_from_clips_impl
-from src.api.smart_editing import create_trendy_timeline as create_trendy_impl
-from src.api.smart_editing import create_vertical_timeline
 from src.api import timeline_operations
 
 @mcp.resource("resolve://timelines")
@@ -192,42 +190,6 @@ def create_timeline_from_clips(name: str, clip_names: List[str]) -> str:
     resolve = get_resolve()
     return create_from_clips_impl(resolve, name, clip_names)
 
-@mcp.tool()
-def create_trendy_timeline(edits: List[Dict[str, Any]], timeline_name: str = "Trendy Cut") -> str:
-    """Create a new timeline structured with selected clips and gaps.
-    
-    Args:
-         edits: List of edits with clip_name, start_time, end_time
-         timeline_name: Name of the timeline to create
-    """
-    resolve = get_resolve()
-    return create_trendy_impl(resolve, edits, timeline_name)
-
-@mcp.tool()
-def assemble_viral_reels(clip_name: str, segments: List[Dict[str, Any]]) -> str:
-    """Assemble vertical Reel timelines from selected segments.
-    
-    Args:
-        clip_name: Source clip name
-        segments: List of dicts with {"start": 0.0, "end": 10.0, "title": "Optional Name"}
-    """
-    resolve = get_resolve()
-    if resolve is None: return "Error: Not connected"
-    
-    results = []
-    for i, seg in enumerate(segments):
-        title = seg.get("title", f"Reel_{i+1}")
-        edits = [{
-            "clip_name": clip_name,
-            "start_time": seg["start"],
-            "end_time": seg["end"]
-        }]
-        
-        # Use create_vertical_timeline for each Reel
-        res = create_vertical_timeline(resolve, edits, f"{title}_{clip_name}")
-        results.append(res)
-        
-    return "\n".join(results)
 
 @mcp.resource("resolve://timeline-items")
 def get_timeline_items() -> List[Dict[str, Any]]:
