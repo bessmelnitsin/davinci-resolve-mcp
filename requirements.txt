@@ -10,8 +10,7 @@ psutil>=5.9.0
 # JSON-RPC Server for API
 jsonrpcserver>=5.0.0
 
-# Gradio client for Whisper-WebUI integration
-gradio_client>=0.10.0
+
 
 # Git repository dependencies
 # git+https://github.com/modelcontextprotocol/python-sdk.git 

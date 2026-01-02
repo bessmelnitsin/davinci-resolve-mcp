@@ -42,8 +42,8 @@ class ResolveNotConnectedError(ResolveAPIError):
     
     def __init__(self, message: str = None):
         super().__init__(
-            message or "DaVinci Resolve не подключен",
-            suggestion="Убедитесь, что DaVinci Resolve запущен перед использованием MCP сервера"
+            message or "DaVinci Resolve is not connected",
+            suggestion="Make sure DaVinci Resolve is running before using the MCP server"
         )
 
 
@@ -52,8 +52,8 @@ class ProjectNotOpenError(ResolveAPIError):
     
     def __init__(self, message: str = None):
         super().__init__(
-            message or "Проект не открыт",
-            suggestion="Используйте open_project('имя') или create_project('имя') для открытия проекта"
+            message or "No project is open",
+            suggestion="Use open_project('name') or create_project('name') to open a project"
         )
 
 
@@ -61,10 +61,10 @@ class TimelineNotFoundError(ResolveAPIError):
     """Raised when the specified timeline cannot be found."""
     
     def __init__(self, timeline_name: str = None):
-        message = f"Timeline '{timeline_name}' не найден" if timeline_name else "Timeline не найден"
+        message = f"Timeline '{timeline_name}' not found" if timeline_name else "Timeline not found"
         super().__init__(
             message,
-            suggestion="Используйте list_timelines() чтобы увидеть доступные timelines"
+            suggestion="Use list_timelines() to see available timelines"
         )
 
 
@@ -73,8 +73,8 @@ class NoCurrentTimelineError(ResolveAPIError):
     
     def __init__(self):
         super().__init__(
-            "Нет активного timeline",
-            suggestion="Создайте timeline с create_timeline('имя') или выберите с set_current_timeline('имя')"
+            "No active timeline",
+            suggestion="Create a timeline with create_timeline('name') or select one with set_current_timeline('name')"
         )
 
 
@@ -82,10 +82,10 @@ class ClipNotFoundError(ResolveAPIError):
     """Raised when the specified clip cannot be found in Media Pool."""
     
     def __init__(self, clip_name: str = None):
-        message = f"Клип '{clip_name}' не найден" if clip_name else "Клип не найден"
+        message = f"Clip '{clip_name}' not found" if clip_name else "Clip not found"
         super().__init__(
             message,
-            suggestion="Используйте list_media_pool_clips() чтобы увидеть доступные клипы"
+            suggestion="Use list_media_pool_clips() to see available clips"
         )
 
 
@@ -93,10 +93,10 @@ class BinNotFoundError(ResolveAPIError):
     """Raised when the specified bin/folder cannot be found."""
     
     def __init__(self, bin_name: str = None):
-        message = f"Папка '{bin_name}' не найдена" if bin_name else "Папка не найдена"
+        message = f"Folder '{bin_name}' not found" if bin_name else "Folder not found"
         super().__init__(
             message,
-            suggestion="Используйте list_media_pool_bins() или create_bin('имя')"
+            suggestion="Use list_media_pool_bins() or create_bin('name')"
         )
 
 
@@ -105,8 +105,8 @@ class RenderError(ResolveAPIError):
     
     def __init__(self, message: str = None):
         super().__init__(
-            message or "Ошибка рендеринга",
-            suggestion="Проверьте настройки рендера и доступность выходной папки"
+            message or "Render error",
+            suggestion="Check render settings and output folder availability"
         )
 
 
@@ -114,10 +114,10 @@ class PageSwitchError(ResolveAPIError):
     """Raised when switching pages fails."""
     
     def __init__(self, page_name: str = None):
-        message = f"Не удалось переключиться на страницу '{page_name}'" if page_name else "Ошибка переключения страницы"
+        message = f"Could not switch to page '{page_name}'" if page_name else "Page switch error"
         super().__init__(
             message,
-            suggestion="Доступные страницы: media, cut, edit, fusion, color, fairlight, deliver"
+            suggestion="Available pages: media, cut, edit, fusion, color, fairlight, deliver"
         )
 
 
@@ -126,8 +126,8 @@ class ColorGradeError(ResolveAPIError):
     
     def __init__(self, message: str = None):
         super().__init__(
-            message or "Ошибка цветокоррекции",
-            suggestion="Убедитесь, что выбран клип в timeline и вы находитесь на странице Color"
+            message or "Color grading error",
+            suggestion="Make sure a clip is selected in the timeline and you are on the Color page"
         )
 
 
@@ -135,12 +135,12 @@ class MediaImportError(ResolveAPIError):
     """Raised when media import fails."""
     
     def __init__(self, file_path: str = None, reason: str = None):
-        message = f"Не удалось импортировать '{file_path}'" if file_path else "Ошибка импорта медиа"
+        message = f"Could not import '{file_path}'" if file_path else "Media import error"
         if reason:
             message += f": {reason}"
         super().__init__(
             message,
-            suggestion="Проверьте путь к файлу и поддерживаемые форматы"
+            suggestion="Check the file path and supported formats"
         )
 
 
@@ -184,7 +184,7 @@ def require_project(func: F) -> F:
         
         pm = resolve.GetProjectManager()
         if pm is None:
-            raise ResolveNotConnectedError("Не удалось получить Project Manager")
+            raise ResolveNotConnectedError("Failed to get Project Manager")
         
         project = pm.GetCurrentProject()
         if project is None:
@@ -212,7 +212,7 @@ def require_timeline(func: F) -> F:
         
         pm = resolve.GetProjectManager()
         if pm is None:
-            raise ResolveNotConnectedError("Не удалось получить Project Manager")
+            raise ResolveNotConnectedError("Failed to get Project Manager")
         
         project = pm.GetCurrentProject()
         if project is None:
@@ -344,15 +344,15 @@ def get_project_safe(resolve) -> Tuple[bool, Any, str]:
         Tuple of (success, project_or_none, message)
     """
     if resolve is None:
-        return False, None, "DaVinci Resolve не подключен"
+        return False, None, "DaVinci Resolve is not connected"
     
     pm = resolve.GetProjectManager()
     if pm is None:
-        return False, None, "Не удалось получить Project Manager"
+        return False, None, "Failed to get Project Manager"
     
     project = pm.GetCurrentProject()
     if project is None:
-        return False, None, "Проект не открыт"
+        return False, None, "No project is open"
     
     return True, project, "OK"
 
@@ -369,7 +369,7 @@ def get_timeline_safe(resolve) -> Tuple[bool, Any, str]:
     
     timeline = project.GetCurrentTimeline()
     if timeline is None:
-        return False, None, "Нет активного timeline"
+        return False, None, "No active timeline"
     
     return True, timeline, "OK"
 
@@ -386,7 +386,7 @@ def get_media_pool_safe(resolve) -> Tuple[bool, Any, str]:
     
     media_pool = project.GetMediaPool()
     if media_pool is None:
-        return False, None, "Не удалось получить Media Pool"
+        return False, None, "Failed to get Media Pool"
     
     return True, media_pool, "OK"
 
@@ -433,7 +433,7 @@ def validate_clip_name(resolve, clip_name: str) -> Tuple[bool, Any, str]:
     
     root_folder = media_pool.GetRootFolder()
     if root_folder is None:
-        return False, None, "Не удалось получить корневую папку Media Pool"
+        return False, None, "Failed to get Media Pool root folder"
     
     # Search recursively
     def find_clip(folder):
@@ -448,6 +448,6 @@ def validate_clip_name(resolve, clip_name: str) -> Tuple[bool, Any, str]:
     
     clip = find_clip(root_folder)
     if clip is None:
-        return False, None, f"Клип '{clip_name}' не найден в Media Pool"
+        return False, None, f"Clip '{clip_name}' not found in Media Pool"
     
     return True, clip, "OK"

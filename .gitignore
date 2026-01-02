@@ -29,6 +29,9 @@ logs/*.log
 to_clean/
 logs_backup/
 cleanup_backup/
+out_trendy*.txt
+debug_out*.txt
+whisper_api_dump*.json
 
 # Configuration files with sensitive info
 # Don't ignore templates

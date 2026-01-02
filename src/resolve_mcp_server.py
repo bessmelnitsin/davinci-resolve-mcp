@@ -12,10 +12,10 @@ from src.context import set_resolve
 from src.utils.resolve_connection import initialize_resolve
 
 # Import tools to register them with the MCP server
-import src.tools.transcription
+
 import src.tools.media
 import src.tools.timeline
-import src.tools.smart_editing
+
 import src.tools.project
 import src.tools.color
 import src.tools.delivery
