@@ -961,6 +961,29 @@ def get_all_media_pool_clips(media_pool):
     process_folder(root_folder)
     return clips
 
+def get_all_media_pool_folders(media_pool):
+    """Get all folders from media pool recursively."""
+    folders = []
+    root_folder = media_pool.GetRootFolder()
+    if not root_folder:
+        return []
+    
+    def process_folder(folder):
+        try:
+            # Add this folder to the list
+            folders.append(folder)
+            
+            # Process subfolders
+            sub_folders = folder.GetSubFolderList()
+            if sub_folders:
+                for sub_folder in sub_folders:
+                    process_folder(sub_folder)
+        except Exception:
+            pass
+    
+    process_folder(root_folder)
+    return folders
+
 def append_clips_to_timeline(resolve, clip_names: list, timeline_name: str = None) -> str:
     """Append a list of clips (by name) to the timeline."""
     if not resolve:

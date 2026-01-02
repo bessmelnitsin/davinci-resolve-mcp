@@ -569,3 +569,140 @@ def get_timeline_tracks(resolve, timeline_name: str = None) -> Dict[str, Any]:
     
     except Exception as e:
         return {"error": f"Error getting timeline tracks: {str(e)}"} 
+def get_timeline_items(resolve) -> List[Dict[str, Any]]:
+    """Get all items in the current timeline with their IDs and basic properties."""
+    if resolve is None: return [{"error": "Not connected"}]
+    
+    project_manager = resolve.GetProjectManager()
+    if not project_manager: return [{"error": "No Project Manager"}]
+    
+    current_project = project_manager.GetCurrentProject()
+    if not current_project: return [{"error": "No project open"}]
+    
+    current_timeline = current_project.GetCurrentTimeline()
+    if not current_timeline: return [{"error": "No timeline active"}]
+    
+    try:
+        video_track_count = current_timeline.GetTrackCount("video")
+        audio_track_count = current_timeline.GetTrackCount("audio")
+        items = []
+        
+        for track_index in range(1, video_track_count + 1):
+            track_items = current_timeline.GetItemListInTrack("video", track_index)
+            if track_items:
+                for item in track_items:
+                    items.append({
+                        "id": str(item.GetUniqueId()),
+                        "name": item.GetName(),
+                        "type": "video",
+                        "track": track_index,
+                        "start": item.GetStart(),
+                        "end": item.GetEnd(),
+                        "duration": item.GetDuration()
+                    })
+        
+        for track_index in range(1, audio_track_count + 1):
+            track_items = current_timeline.GetItemListInTrack("audio", track_index)
+            if track_items:
+                for item in track_items:
+                    items.append({
+                        "id": str(item.GetUniqueId()),
+                        "name": item.GetName(),
+                        "type": "audio",
+                        "track": track_index,
+                        "start": item.GetStart(),
+                        "end": item.GetEnd(),
+                        "duration": item.GetDuration()
+                    })
+        
+        return items if items else [{"info": "No items found"}]
+    except Exception as e:
+        return [{"error": f"Error: {e}"}]
+
+def get_timeline_item(resolve, item_id: str):
+    """Helper to find an item by ID."""
+    if not resolve: return None
+    pm = resolve.GetProjectManager()
+    if not pm: return None
+    proj = pm.GetCurrentProject()
+    if not proj: return None
+    tl = proj.GetCurrentTimeline()
+    if not tl: return None
+    
+    # naive search across all tracks
+    v_tracks = tl.GetTrackCount("video")
+    a_tracks = tl.GetTrackCount("audio")
+    
+    for i in range(1, v_tracks + 1):
+        items = tl.GetItemListInTrack("video", i)
+        if items:
+            for item in items:
+                if str(item.GetUniqueId()) == item_id:
+                    return item
+    
+    for i in range(1, a_tracks + 1):
+        items = tl.GetItemListInTrack("audio", i)
+        if items:
+            for item in items:
+                if str(item.GetUniqueId()) == item_id:
+                    return item
+    return None
+
+def get_timeline_item_properties(resolve, item_id: str) -> Dict[str, Any]:
+    """Get properties of a specific timeline item by ID."""
+    item = get_timeline_item(resolve, item_id)
+    if not item: return {"error": f"Item {item_id} not found or no active timeline"}
+    
+    try:
+        props = {
+            "id": item_id,
+            "name": item.GetName(),
+            "type": item.GetType(),
+            "start": item.GetStart(),
+            "end": item.GetEnd(),
+            "duration": item.GetDuration()
+        }
+        
+        if item.GetType() == "Video":
+            props["transform"] = {
+                "zoom_x": item.GetProperty("ZoomX"),
+                "zoom_y": item.GetProperty("ZoomY"),
+                "pan": item.GetProperty("Pan"),
+                "tilt": item.GetProperty("Tilt"),
+                "rotation": item.GetProperty("Rotation"),
+                "pitch": item.GetProperty("Pitch"),
+                "yaw": item.GetProperty("Yaw"),
+                "anchor_x": item.GetProperty("AnchorPointX"),
+                "anchor_y": item.GetProperty("AnchorPointY")
+            }
+            props["crop"] = {
+                "left": item.GetProperty("CropLeft"),
+                "right": item.GetProperty("CropRight"),
+                "top": item.GetProperty("CropTop"),
+                "bottom": item.GetProperty("CropBottom")
+            }
+            props["composite"] = {
+                "mode": item.GetProperty("CompositeMode"),
+                "opacity": item.GetProperty("Opacity")
+            }
+        
+        if item.GetType() == "Audio" or item.GetMediaType() == "Audio":
+             props["audio"] = {
+                "volume": item.GetProperty("Volume")
+             }
+             
+        return props
+    except Exception as e:
+        return {"error": f"Error getting props: {e}"}
+
+def set_timeline_item_property(resolve, item_id: str, property_name: str, value: Any) -> str:
+    """Set a property for a timeline item."""
+    item = get_timeline_item(resolve, item_id)
+    if not item: return f"Error: Item {item_id} not found"
+    
+    try:
+        if item.SetProperty(property_name, value):
+            return f"Set {property_name} to {value}"
+        return f"Failed to set {property_name}"
+    except Exception as e:
+        return f"Error: {e}"

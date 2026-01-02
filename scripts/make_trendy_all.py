@@ -39,8 +39,9 @@ import DaVinciResolveScript as dvr_script
 import subprocess
 import json
 # from src.api.whisper_node import transcribe_with_whisper_node # Removed direct import
-from src.api.viral_detector import find_viral_segments
+from src.api.viral_detector import find_viral_segments, ViralConfig
 from src.api.smart_editing import create_trendy_timeline
+from src.api.semantic_detector import SemanticDetector
 
 def transcribe_in_subprocess(file_path):
     """Run transcription in a separate process to avoid DLL conflicts with Resolve."""
@@ -199,7 +200,26 @@ def main():
         
         # Find viral segments
         print("  Finding viral moments...")
-        viral_segments = find_viral_segments(whisper_result, max_segments=3)
+        viral_segments = []
+        
+        # 1. Try Semantic LLM Analysis
+        try:
+            # We check if client has key implicitly inside analyze()
+            detector = SemanticDetector()
+            # Reuse same config limits
+            llm_config = ViralConfig(max_segments=3, min_duration=15.0, max_duration=60.0)
+            
+            llm_results = detector.analyze(whisper_result, llm_config)
+            if llm_results:
+                print(f"  [LLM] Success! Identified {len(llm_results)} semantically viral clips.")
+                viral_segments = [v.to_dict() for v in llm_results]
+        except Exception as e:
+            print(f"  [LLM] Analysis skipped: {e}")
+            
+        # 2. Fallback to Heuristics if LLM failed or returned nothing
+        if not viral_segments:
+            print("  [Heuristic] Running keyword/pattern analysis...")
+            viral_segments = find_viral_segments(whisper_result, max_segments=3)
         
         if not viral_segments:
             print("  No viral segments found, using full clip")

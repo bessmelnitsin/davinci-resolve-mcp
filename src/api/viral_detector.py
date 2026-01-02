@@ -42,11 +42,11 @@ class ViralConfig:
     language: str = "auto"              # "en", "ru", or "auto"
     
     # Scoring weights (should sum to 100)
-    hook_weight: int = 25
-    emotion_weight: int = 20
-    completeness_weight: int = 20
-    pace_weight: int = 15
-    duration_weight: int = 20
+    hook_weight: int = 35          # Increased from 25
+    emotion_weight: int = 15       # Decreased from 20
+    completeness_weight: int = 25  # Increased from 20
+    pace_weight: int = 15          # Same
+    duration_weight: int = 10      # Decreased from 20
 
 
 @dataclass
@@ -97,50 +97,56 @@ HOOK_PATTERNS = {
         (r"^\d+\s+(things?|ways?|tips?|hacks?|secrets?)", "listicle"),
     ],
     "ru": [
-        (r"^вот\s+(почему|как|что|в\s+чём)", "opener_vot"),
-        (r"^(ты|вы)\s+не\s+поверите", "curiosity"),
-        (r"^(секрет|правда|проблема)\s+(в\s+том|заключается)", "revelation"),
-        (r"^(стоп|подождите?|послушай|смотри)", "attention_grab"),
-        (r"^это\s+(важно|главное|ключевое)", "statement"),
-        (r"^(никогда|всегда)\s+не\s+\w+", "warning"),
-        (r"^(я|мы)\s+(узнал[аи]?|обнаружил[аи]?|понял[аи]?)", "story"),
-        (r"^(большинство|многие)\s+(не\s+знают?|думают?)", "contrarian"),
-        (r"^(первая?|главная?)\s+(причина|ошибка|вещь)", "ranking"),
-        (r"^\d+\s+(способов?|советов?|лайфхаков?)", "listicle"),
+        (r"^(вот|и)\s+(почему|как|что|зачем|где)", "opener_vot"),
+        (r"^(ты|вы)\s+(никогда|не)\s+(поверите|знали|догадаетесь)", "curiosity"),
+        (r"^(секрет|правда|суть|фишка|проблема)\s+(в\s+том|заключается)", "revelation"),
+        (r"^(стоп|погоди|подожди|слушай|смотри|зацени)\b", "attention_grab"),
+        (r"^это\s+(самое|реально|просто)\s+(важное|жесть|крутое)", "statement"),
+        (r"^(никогда|всегда|запомни|не)\s+(делай|говори|забывай)", "warning"),
+        (r"^(короче|прикинь|представь|кстати)\b", "conversational_hook"),
+        (r"^(я|мы)\s+(понял|узнал|офигел|решил)", "story"),
+        (r"^(все|многие)\s+(думают|ошибаются|говорят)", "contrarian"),
+        (r"^(топ|лучший|худший)\s+(способ|вариант|совет)", "ranking"),
+        (r"^\d+\s+(вещей|причин|фактов|секретов)", "listicle"),
+        (r"^(а)\s+(что|как)\s+(если|насчет)", "rhetorical"),
     ]
 }
 
 EMOTION_MARKERS = {
     "excitement": {
         "en": ["!", "wow", "amazing", "incredible", "insane", "awesome", "unbelievable", "mind-blowing"],
-        "ru": ["!", "вау", "невероятно", "потрясающе", "офигеть", "круто", "обалдеть", "безумие"]
+        "ru": ["!", "вау", "жесть", "ого", "супер", "класс", "офигеть", "круто", "шок", "бомба", "прикол"]
     },
     "question": {
         "en": ["?", "why", "how come", "what if", "have you ever", "do you know"],
-        "ru": ["?", "почему", "как так", "а что если", "вы когда-нибудь", "знаете ли"]
+        "ru": ["?", "почему", "зачем", "как так", "а что если", "знаешь", "видели"]
     },
     "surprise": {
         "en": ["wait", "hold on", "actually", "but here's the thing", "plot twist", "turns out"],
-        "ru": ["стоп", "подождите", "на самом деле", "но вот в чём дело", "оказывается", "внезапно"]
+        "ru": ["стоп", "подожди", "на самом деле", "но вот", "оказывается", "внезапно", "прикинь"]
     },
     "urgency": {
         "en": ["now", "today", "immediately", "must", "need to", "don't miss", "before it's too late"],
-        "ru": ["сейчас", "сегодня", "срочно", "нужно", "обязательно", "не пропустите", "пока не поздно"]
+        "ru": ["сейчас", "срочно", "надо", "быстрее", "прямо сейчас", "не пропусти"]
     },
     "authority": {
         "en": ["proven", "research shows", "scientists", "studies", "expert", "years of experience"],
-        "ru": ["доказано", "исследования показывают", "учёные", "эксперт", "опыт", "многолетний"]
+        "ru": ["факт", "доказано", "эксперты", "опыт", "я уверен", "точно", "сто процентов"]
+    },
+    "slang": {
+        "en": ["lol", "lmao", "cool", "fire"],
+        "ru": ["кайф", "кринж", "олды", "имба", "треш", "жиза", "топчик"]
     }
 }
 
 WEAK_STARTS = {
     "en": ["so", "um", "uh", "like", "okay so", "and", "but", "well", "you know", "i mean"],
-    "ru": ["ну", "эм", "так", "короче", "в общем", "типа", "ладно", "значит", "как бы"]
+    "ru": ["ну", "ээ", "эм", "как бы", "типа", "в общем", "короче говоря", "значит", "слушай ну", "просто"]
 }
 
 SENTENCE_ENDINGS = {
     "en": [".", "!", "?", "...", "—"],
-    "ru": [".", "!", "?", "...", "—", "…"]
+    "ru": [".", "!", "?", "...", "—", "…", ")"]
 }
 
 
@@ -200,12 +206,31 @@ class ViralSegmentDetector:
             if scored.total_score > 0:
                 viral_segments.append(scored)
         
-        # Sort by score and limit
+        # Sort by score and limit with overlap check
         viral_segments.sort(key=lambda x: x.total_score, reverse=True)
-        result = viral_segments[:self.config.max_segments]
         
-        logger.info(f"Returning {len(result)} viral segments")
-        return result
+        final_segments = []
+        for candidate in viral_segments:
+            # Check overlap with already selected
+            is_overlap = False
+            for selected in final_segments:
+                # Calculate IOE (Intersection Over Either) or just simple overlap
+                overlap_start = max(candidate.start, selected.start)
+                overlap_end = min(candidate.end, selected.end)
+                overlap_duration = max(0, overlap_end - overlap_start)
+                
+                # If they overlap by more than 5 seconds (or 20% of duration), skip it
+                if overlap_duration > 5.0:
+                    is_overlap = True
+                    break
+            
+            if not is_overlap:
+                final_segments.append(candidate)
+                if len(final_segments) >= self.config.max_segments:
+                    break
+        
+        logger.info(f"Returning {len(final_segments)} viral segments (deduplicated)")
+        return final_segments
     
     def _detect_language(self, whisper_data: Dict, segments: List[Dict]) -> str:
         """Detect language from whisper data or content analysis."""

@@ -96,3 +96,11 @@ logs/*
 
 # Cursor
 .cursor/ 
+# Debug and temporary output files
+out_trendy_*.txt
+debug_out.txt
+whisper_api_dump.json
+endpoints.json
+
+# JSON dumps (excluding configs)
+*.dump.json
