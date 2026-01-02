@@ -35,6 +35,7 @@ def list_media_pool_clips(resolve) -> List[Dict[str, Any]]:
     #    root_folder = media_pool.GetRootFolder()
     #    clips = root_folder.GetClipList()
     
+    clip_info = []
     for clip in clips:
         if clip:
             properties = clip.GetClipProperty()

@@ -34,27 +34,35 @@ def check_setup():
         
     return True
 
-def run_server(debug=False):
+def run_server(variant="full", debug=False):
     """Run the MCP server."""
-    from src.resolve_mcp_server import mcp
+    if variant == "edit":
+        from src.server_edit import mcp
+        logger_name = "davinci-resolve-mcp-edit"
+    else:
+        # Default to full server
+        from src.resolve_mcp_server import mcp
+        logger_name = "davinci-resolve-mcp"
     
     # Set logging level based on debug flag
     if debug:
-        logging.getLogger("davinci-resolve-mcp").setLevel(logging.DEBUG)
+        logging.getLogger(logger_name).setLevel(logging.DEBUG)
         logger.info("Debug mode enabled")
     
     # Run the server
-    logger.info("Starting DaVinci Resolve MCP Server...")
+    logger.info(f"Starting DaVinci Resolve MCP Server ({variant})...")
     mcp.run()
 
 def main():
     """Main entry point for the application."""
     parser = argparse.ArgumentParser(description="DaVinci Resolve MCP Server")
     parser.add_argument("--debug", action="store_true", help="Enable debug logging")
+    parser.add_argument("--variant", choices=["full", "edit"], default="full", 
+                      help="Server variant to run (default: full)")
     args = parser.parse_args()
     
     if check_setup():
-        run_server(debug=args.debug)
+        run_server(variant=args.variant, debug=args.debug)
     else:
         logger.error("Failed to set up the environment. Please check the configuration.")
         return 1

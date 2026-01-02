@@ -1,13 +1,19 @@
 {
+  "whisper_webui_url": "http://127.0.0.1:7860",
   "whisper_python": "",
   "whisper_script": "",
   "model_size": "large-v3",
   "use_native_resolve_ai": true,
   "cache_transcriptions": true,
-  "supported_languages": ["en", "ru", "auto"],
+  "supported_languages": [
+    "en",
+    "ru",
+    "auto"
+  ],
   "word_timestamps": true,
   "output_format": "json",
   "notes": {
+    "whisper_webui_url": "URL of Whisper-WebUI Gradio server. Default: http://127.0.0.1:7860. Set to empty string to skip WebUI check.",
     "whisper_python": "Path to Python with Whisper installed. Leave empty to use system Python or set WHISPER_PYTHON env var.",
     "whisper_script": "Path to whisper_to_json.py script. Leave empty to use built-in transcription.",
     "use_native_resolve_ai": "If true, prefer DaVinci Resolve's built-in Neural Engine for transcription (requires Studio version)."

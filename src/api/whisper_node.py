@@ -2,10 +2,10 @@
 """
 Whisper Transcription Module for DaVinci Resolve MCP
 
-Supports:
-1. External Whisper installation (configurable path)
-2. Built-in whisper Python package
-3. DaVinci Resolve Native AI (fallback)
+Supports (in order of priority):
+1. Whisper-WebUI Server (Gradio API at localhost:7860)
+2. External Whisper installation (configurable path)
+3. Built-in whisper Python package (faster-whisper, openai-whisper)
 """
 
 import os
@@ -27,11 +27,12 @@ def get_whisper_config() -> Dict[str, Any]:
     """Load Whisper configuration from file or environment variables.
     
     Priority:
-    1. Environment variables (WHISPER_PYTHON, WHISPER_SCRIPT)
+    1. Environment variables (WHISPER_WEBUI_URL, WHISPER_PYTHON, WHISPER_SCRIPT)
     2. Config file (config/whisper_config.json)
     3. Built-in defaults
     """
     defaults = {
+        "whisper_webui_url": "http://127.0.0.1:7860",  # Whisper-WebUI Gradio server
         "whisper_python": "",
         "whisper_script": "",
         "model_size": "large-v3",
@@ -54,6 +55,8 @@ def get_whisper_config() -> Dict[str, Any]:
             logger.warning(f"Failed to load config from {CONFIG_PATH}: {e}")
     
     # Override with environment variables if set
+    if os.environ.get("WHISPER_WEBUI_URL"):
+        defaults["whisper_webui_url"] = os.environ["WHISPER_WEBUI_URL"]
     if os.environ.get("WHISPER_PYTHON"):
         defaults["whisper_python"] = os.environ["WHISPER_PYTHON"]
     if os.environ.get("WHISPER_SCRIPT"):
@@ -62,6 +65,301 @@ def get_whisper_config() -> Dict[str, Any]:
         defaults["model_size"] = os.environ["WHISPER_MODEL"]
     
     return defaults
+
+
+def _transcribe_with_webui(file_path: str, config: Dict[str, Any]) -> Optional[Dict]:
+    """Transcribe using Whisper-WebUI Gradio server.
+    
+    This is the fastest method as the model is already loaded in GPU memory.
+    Whisper-WebUI runs at http://127.0.0.1:7860 by default.
+    
+    Args:
+        file_path: Path to the audio/video file
+        config: Configuration dictionary
+        
+    Returns:
+        Transcription dict or None if server unavailable
+    """
+    webui_url = config.get("whisper_webui_url", "http://127.0.0.1:7860")
+    
+    # First check if server is available
+    try:
+        import requests
+        health_url = f"{webui_url}/"
+        response = requests.get(health_url, timeout=2)
+        if response.status_code != 200:
+            logger.debug(f"Whisper-WebUI not available at {webui_url}")
+            return None
+    except Exception as e:
+        logger.debug(f"Whisper-WebUI not reachable: {e}")
+        return None
+    
+    # Try using gradio_client if available
+    try:
+        from gradio_client import Client, handle_file
+        
+        logger.info(f"Connecting to Whisper-WebUI at {webui_url}")
+        client = Client(webui_url, verbose=False)
+        try:
+            # Prepare arguments for the 54-parameter API
+            # Based on inspection of running server 2026-01-01
+            
+            model_size = config.get("model_size", "large-v3")
+            language = "Automatic Detection"
+            
+            inputs = [
+                # [0] Upload File
+                handle_file(file_path),
+                # [1] Input Folder Path
+                "",
+                # [2] Include Subdirectory Files
+                False,
+                # [3] Save outputs at same directory
+                False,
+                # [4] File Format
+                "SRT",
+                # [5] Add timestamp to filename
+                False,
+                # [6] Model
+                model_size,
+                # [7] Language
+                language,
+                # [8] Translate to English
+                False,
+                # [9] Beam Size
+                5,
+                # [10] Log Probability Threshold
+                -1.0,
+                # [11] No Speech Threshold
+                0.6,
+                # [12] Compute Type
+                "float16",
+                # [13] Best Of
+                5,
+                # [14] Patience
+                1.0,
+                # [15] Condition On Previous Text
+                True,
+                # [16] Prompt Reset On Temperature
+                0.1,
+                # [17] Initial Prompt
+                "",
+                # [18] Temperature
+                0,
+                # [19] Compression Ratio Threshold
+                2.4,
+                # [20] Length Penalty
+                1.0,
+                # [21] Repetition Penalty
+                1.0,
+                # [22] No Repeat N-gram Size
+                0,
+                # [23] Prefix
+                "",
+                # [24] Suppress Blank
+                True,
+                # [25] Suppress Tokens
+                "-1",
+                # [26] Max Initial Timestamp
+                1.0,
+                # [27] Word Timestamps
+                True,
+                # [28] Prepend Punctuations
+                "\"'“¿([{-",
+                # [29] Append Punctuations
+                "\"'.。,，!！?？:：”)]}、",
+                # [30] Max New Tokens
+                0,
+                # [31] Chunk Length (s)
+                30,
+                # [32] Hallucination Silence Threshold (sec)
+                2,
+                # [33] Hotwords
+                "",
+                # [34] Language Detection Threshold
+                0.5,
+                # [35] Language Detection Segments
+                1,
+                # [36] Batch Size
+                16,
+                # [37] Offload sub model when finished
+                False,
+                # [38] Enable Silero VAD Filter
+                True,
+                # [39] Speech Threshold
+                0.6,
+                # [40] Minimum Speech Duration (ms)
+                250,
+                # [41] Maximum Speech Duration (s)
+                0,
+                # [42] Minimum Silence Duration (ms)
+                2000,
+                # [43] Speech Padding (ms)
+                400,
+                # [44] Enable Diarization
+                False,
+                # [45] Device
+                "cuda",
+                # [46] HuggingFace Token
+                "",
+                # [47] Offload sub model when finished (duplicate in UI?)
+                False,
+                # [48] Enable Background Music Remover Filter
+                False,
+                # [49] Model (UVR)
+                "UVR-MDX-NET-Inst_HQ_4",
+                # [50] Device (UVR)
+                "cuda",
+                # [51] Segment Size
+                256,
+                # [52] Save separated files to output
+                False,
+                # [53] Offload sub model when finished (UVR)
+                False
+            ]
+            
+            result = client.predict(
+                *inputs,
+                api_name="/transcribe_file"
+            )
+            
+            logger.debug(f"Whisper-WebUI raw result type: {type(result)}")
+            
+            # Parse result based on Whisper-WebUI output format
+            if isinstance(result, str):
+                # Simple text output - parse as SRT or plain text
+                text = result.strip()
+                
+                # Try to parse SRT format
+                if "-->" in text:
+                    segments = _parse_srt_to_segments(text)
+                    return {
+                        "text": " ".join(s["text"] for s in segments),
+                        "segments": segments,
+                        "language": "auto"
+                    }
+                else:
+                    return {
+                        "text": text,
+                        "segments": [{"start": 0, "end": 0, "text": text}],
+                        "language": "auto"
+                    }
+                    
+            elif isinstance(result, tuple):
+                # Multiple outputs (common in Gradio)
+                # Usually: (transcription_text, srt_content, json_content, ...)
+                for item in result:
+                    if isinstance(item, str) and item.strip():
+                        # Try JSON first
+                        if item.strip().startswith("{") or item.strip().startswith("["):
+                            try:
+                                data = json.loads(item)
+                                if isinstance(data, dict) and ("segments" in data or "text" in data):
+                                    return data
+                            except:
+                                pass
+                        # Then try SRT
+                        if "-->" in item:
+                            segments = _parse_srt_to_segments(item)
+                            return {
+                                "text": " ".join(s["text"] for s in segments),
+                                "segments": segments,
+                                "language": "auto"
+                            }
+                        # Otherwise plain text
+                        return {
+                            "text": item.strip(),
+                            "segments": [{"start": 0, "end": 0, "text": item.strip()}],
+                            "language": "auto"
+                        }
+                    # Check for file path result (Gradio returns file paths sometimes)
+                    elif isinstance(item, str) and (item.endswith('.srt') or item.endswith('.txt') or item.endswith('.json')):
+                        if os.path.exists(item):
+                            try:
+                                with open(item, 'r', encoding='utf-8') as f:
+                                    content = f.read()
+                                if item.endswith('.json'):
+                                    data = json.loads(content)
+                                    if isinstance(data, dict):
+                                        return data
+                                elif item.endswith('.srt') and '-->' in content:
+                                    segments = _parse_srt_to_segments(content)
+                                    return {
+                                        "text": " ".join(s["text"] for s in segments),
+                                        "segments": segments,
+                                        "language": "auto"
+                                    }
+                                else:
+                                    return {
+                                        "text": content.strip(),
+                                        "segments": [{"start": 0, "end": 0, "text": content.strip()}],
+                                        "language": "auto"
+                                    }
+                            except Exception as read_err:
+                                logger.warning(f"Could not read result file {item}: {read_err}")
+                        
+            elif isinstance(result, dict):
+                return result
+            
+            logger.warning(f"Unexpected result format from Whisper-WebUI: {type(result)}")
+            if result:
+                logger.debug(f"Result content: {str(result)[:500]}")
+            return None
+            
+        except Exception as e:
+            logger.warning(f"Whisper-WebUI /transcribe_file failed: {e}")
+            # Try alternative API endpoint if exists
+            try:
+                # Some Whisper-WebUI versions have simpler API
+                result = client.predict(
+                    handle_file(file_path),
+                    fn_index=0
+                )
+                if result:
+                    if isinstance(result, str):
+                        if "-->" in result:
+                            segments = _parse_srt_to_segments(result)
+                            return {
+                                "text": " ".join(s["text"] for s in segments),
+                                "segments": segments,
+                                "language": "auto"
+                            }
+                        return {"text": result, "segments": [], "language": "auto"}
+            except Exception as e2:
+                logger.warning(f"Alternative Whisper-WebUI call also failed: {e2}")
+            return None
+        
+    except ImportError:
+        logger.debug("gradio_client not installed. Install with: pip install gradio_client")
+        return None
+    except Exception as e:
+        logger.debug(f"Whisper-WebUI connection failed: {e}")
+        return None
+
+
+def _parse_srt_to_segments(srt_content: str) -> list:
+    """Parse SRT subtitle format to segments list."""
+    import re
+    segments = []
+    
+    # SRT pattern: index\ntimestamp --> timestamp\ntext\n
+    pattern = r'(\d+)\n(\d{2}):(\d{2}):(\d{2}),(\d{3})\s*-->\s*(\d{2}):(\d{2}):(\d{2}),(\d{3})\n(.+?)(?=\n\n|\Z)'
+    
+    for match in re.finditer(pattern, srt_content, re.DOTALL):
+        start_h, start_m, start_s, start_ms = int(match.group(2)), int(match.group(3)), int(match.group(4)), int(match.group(5))
+        end_h, end_m, end_s, end_ms = int(match.group(6)), int(match.group(7)), int(match.group(8)), int(match.group(9))
+        text = match.group(10).strip().replace('\n', ' ')
+        
+        start = start_h * 3600 + start_m * 60 + start_s + start_ms / 1000
+        end = end_h * 3600 + end_m * 60 + end_s + end_ms / 1000
+        
+        segments.append({
+            "start": start,
+            "end": end,
+            "text": text
+        })
+    
+    return segments
 
 
 def _transcribe_with_external_script(file_path: str, config: Dict[str, Any], temp_path: str) -> Optional[Dict]:
@@ -141,13 +439,55 @@ def _transcribe_with_faster_whisper(file_path: str, config: Dict[str, Any]) -> O
         logger.debug("faster-whisper not installed")
         return None
     
+    # GPU Support: Load NVIDIA DLLs if installed
+    try:
+        import nvidia.cudnn
+        import nvidia.cublas
+        import os
+        import sys
+        
+        # Add DLL directories for Windows
+        if sys.platform.startswith("win"):
+            for lib in [nvidia.cudnn, nvidia.cublas]:
+                paths = getattr(lib, "__path__", [])
+                for p in paths:
+                    possible_paths = [
+                        p,
+                        os.path.join(p, "bin"),
+                        os.path.join(p, "lib")
+                    ]
+                    for pp in possible_paths:
+                        if os.path.exists(pp):
+                            logger.debug(f"Adding DLL path: {pp}")
+                            os.add_dll_directory(pp)
+                            os.environ["PATH"] = pp + os.pathsep + os.environ["PATH"]
+            logger.info("Loaded NVIDIA cuDNN/cuBLAS DLL paths")
+    except ImportError:
+        logger.warning("NVIDIA libraries not found via pip, GPU might fail if system libs are missing")
+    except Exception as e:
+        logger.warning(f"Failed to load NVIDIA DLLs: {e}")
+
     model_size = config.get("model_size", "large-v3")
     
+    # Check for zlibwapi.dll (critical for cuDNN on Windows)
+    import ctypes
+    target_device = "auto"
     try:
-        logger.info(f"Loading faster-whisper model: {model_size}")
-        model = WhisperModel(model_size, device="auto", compute_type="auto")
+        if sys.platform.startswith("win"):
+            ctypes.CDLL("zlibwapi.dll")
+            logger.debug("Found zlibwapi.dll")
+    except Exception as e:
+        logger.warning(f"Could not load zlibwapi.dll ({e}). GPU acceleration requires this DLL on Windows.")
+        logger.warning("Falling back to CPU using 'int8' to prevent runtime crash.")
+        target_device = "cpu"
+
+    try:
+        logger.info(f"Loading faster-whisper model: {model_size} on {target_device}")
+        # Use float16 for GPU to avoid cuBLAS errors with int8 on some cards
+        compute_type = "float16" if target_device == "auto" else "int8"
+        model = WhisperModel(model_size, device=target_device, compute_type=compute_type)
         
-        logger.info(f"Transcribing with faster-whisper: {file_path}")
+        logger.info(f"Transcribing with faster-whisper ({target_device} - {compute_type}): {file_path}")
         segments, info = model.transcribe(
             file_path,
             word_timestamps=config.get("word_timestamps", True)
@@ -213,25 +553,33 @@ def transcribe_with_whisper_node(file_path: str, model_size: str = None, use_cac
             except Exception as e:
                 logger.warning(f"Failed to load cache {cache_path}: {e}")
     
-    # Try transcription methods in order
+    # Try transcription methods in order of priority
     result = None
     temp_fd, temp_path = tempfile.mkstemp(suffix=".json")
     os.close(temp_fd)
     
     try:
+        # Method 0: Whisper-WebUI Server (fastest - model already in GPU memory)
+        webui_url = config.get("whisper_webui_url")
+        if webui_url:
+            logger.info(f"Trying Method 0: Whisper-WebUI at {webui_url}")
+            result = _transcribe_with_webui(file_path, config)
+            if result:
+                logger.info("Transcription completed via Whisper-WebUI")
+        
         # Method 1: External script
-        if config.get("whisper_script"):
+        if result is None and config.get("whisper_script"):
             logger.info("Trying Method 1: External Whisper script")
             result = _transcribe_with_external_script(file_path, config, temp_path)
         
-        # Method 2: faster-whisper
+        # Method 2: faster-whisper (local)
         if result is None:
-            logger.info("Trying Method 2: faster-whisper")
+            logger.info("Trying Method 2: faster-whisper (local)")
             result = _transcribe_with_faster_whisper(file_path, config)
         
-        # Method 3: openai-whisper
+        # Method 3: openai-whisper (local)
         if result is None:
-            logger.info("Trying Method 3: openai-whisper")
+            logger.info("Trying Method 3: openai-whisper (local)")
             result = _transcribe_with_builtin_whisper(file_path, config)
         
         # No method worked
@@ -239,10 +587,10 @@ def transcribe_with_whisper_node(file_path: str, model_size: str = None, use_cac
             return {
                 "error": "No transcription method available",
                 "suggestions": [
+                    "Start Whisper-WebUI: python app.py (runs at http://127.0.0.1:7860)",
                     "Install faster-whisper: pip install faster-whisper",
                     "Install openai-whisper: pip install openai-whisper", 
-                    "Configure external script in config/whisper_config.json",
-                    "Use DaVinci Resolve's built-in transcription (requires Studio)"
+                    "Configure external script in config/whisper_config.json"
                 ]
             }
         
