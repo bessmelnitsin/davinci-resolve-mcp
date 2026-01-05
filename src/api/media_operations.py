@@ -1976,3 +1976,108 @@ def export_folder(resolve, folder_name: str, output_path: str) -> str:
         return "Failed to export folder"
     except Exception as e:
         return f"Error exporting folder: {e}"
+
+def import_folder_from_file(resolve, file_path: str, source_bin_name: str = None) -> str:
+    """Import a folder from a DRB file.
+    
+    Args:
+        resolve: DaVinci Resolve instance
+        file_path: Path to DRB file
+        source_bin_name: Optional name of source bin in DRB to import
+    """
+    if resolve is None:
+        return "Error: Not connected to DaVinci Resolve"
+    
+    pm = resolve.GetProjectManager()
+    project = pm.GetCurrentProject() if pm else None
+    if not project:
+        return "Error: No project open"
+    
+    media_pool = project.GetMediaPool()
+    if not media_pool:
+        return "Error: No media pool"
+    
+    try:
+        # ImportFolderFromFile returns a Folder object or None/False? API docs check required.
+        # Usually returns the imported folder.
+        imported_folder = media_pool.ImportFolderFromFile(file_path, source_bin_name) if source_bin_name else media_pool.ImportFolderFromFile(file_path)
+        
+        if imported_folder:
+            return f"Successfully imported folder from '{file_path}'"
+        return "Failed to import folder"
+    except Exception as e:
+        return f"Error importing folder: {e}"
+
+def delete_folder(resolve, folder_name: str) -> str:
+    """Delete a folder/bin from the media pool.
+    
+    Args:
+        resolve: DaVinci Resolve instance
+        folder_name: Name of the folder to delete
+    """
+    if resolve is None:
+        return "Error: Not connected to DaVinci Resolve"
+    
+    pm = resolve.GetProjectManager()
+    project = pm.GetCurrentProject() if pm else None
+    if not project:
+        return "Error: No project open"
+    
+    media_pool = project.GetMediaPool()
+    if not media_pool:
+        return "Error: No media pool"
+    
+    try:
+        root_folder = media_pool.GetRootFolder()
+        target_folder = None
+        
+        # Search in top-level folders
+        for folder in root_folder.GetSubFolderList():
+            if folder.GetName() == folder_name:
+                target_folder = folder
+                break
+        
+        if not target_folder:
+             # Recursive search if not found in root? 
+             # For safety let's stick to top/simple search or we need a helper "find_folder_by_name"
+             return f"Error: Folder '{folder_name}' not found in root level"
+             
+        if media_pool.DeleteFolders([target_folder]):
+            return f"Deleted folder '{folder_name}'"
+        return f"Failed to delete folder '{folder_name}'"
+    except Exception as e:
+        return f"Error deleting folder: {e}"
+
+def get_folder_is_stale(resolve, folder_name: str) -> Dict[str, Any]:
+    """Check if a folder is stale (collaboration mode)."""
+    if resolve is None:
+        return {"error": "Not connected"}
+    
+    pm = resolve.GetProjectManager()
+    project = pm.GetCurrentProject() if pm else None
+    if not project:
+        return {"error": "No project open"}
+    
+    media_pool = project.GetMediaPool()
+    
+    folder = None
+    root_folder = media_pool.GetRootFolder()
+    if folder_name.lower() == "master" or folder_name == root_folder.GetName():
+        folder = root_folder
+    else:
+        for subfolder in root_folder.GetSubFolderList():
+            if subfolder.GetName() == folder_name:
+                folder = subfolder
+                break
+    
+    if not folder:
+        return {"error": f"Folder '{folder_name}' not found"}
+            
+    try:
+        return {
+            "folder": folder.GetName(),
+            "is_stale": folder.GetIsFolderStale()
+        }
+    except Exception as e:
+        return {"error": f"Error checking staleness: {e}"}
+

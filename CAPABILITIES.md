@@ -6,19 +6,17 @@ Comprehensive list of all available MCP tools and resources.
 
 | Module | Tools | Resources | Description |
 |--------|-------|-----------|-------------|
-| Navigation | 9 | 2 | Page switching, system info, keyframes |
+| Navigation | 4 | 2 | Page switching, system info |
 | Project | 49 | 12 | Lifecycle, settings, presets, cloud |
 | MediaStorage | 6 | 1 | Storage browsing, add to pool |
 | Media | 42 | 10 | MediaPool clips, metadata, mattes |
-| Timeline | 80 | 7 | Tracks, items, markers, stereo, cache |
+| Timeline | 72 | 7 | Tracks, items, markers, stereo, cache |
 | Fusion | 11 | 2 | Compositions, Text+, templates |
-| Color | 42 | 0 | Node graph, gallery, color groups, cache |
+| Color | 38 | 0 | Node graph, gallery, color groups |
 | Fairlight | 13 | 0 | Audio, voice isolation |
 | Delivery | 14 | 4 | Render queue, quick export |
-| Main | 0 | 1 | Status |
-| **Total** | **~276** | **~39** | **~315 endpoints** |
+| **Total** | **273** | **38** | **311 endpoints** |
 
-> Note: Some tools have duplicates across modules that are filtered at runtime.
 
 ---
 
@@ -460,6 +458,8 @@ Visual effects and compositing tools.
 | `get_folder_is_stale` | Check folder staleness |
 | `get_folder_unique_id` | Get folder ID |
 | `export_folder_to_drb` | Export folder as DRB |
+| `import_folder_from_drb` | Import folder from DRB |
+| `delete_folder` | Delete folder |
 
 ### Color Group Extensions (4.7-4.8)
 | Tool | Description |
@@ -474,6 +474,9 @@ Visual effects and compositing tools.
 | `delete_stills_from_album` | Delete stills |
 | `get_still_label` | Get still label |
 | `set_still_label` | Set still label |
+| `get_node_label` | Get node label |
+| `get_node_lut` | Get node LUT |
+| `delete_gallery_stills` | Delete stills (alias) |
 
 ---
 

@@ -10,6 +10,7 @@ from src.api.media_operations import append_clips_to_timeline as append_impl
 from src.api.media_operations import create_timeline_from_clips as create_from_clips_impl
 from src.api import timeline_operations
 
+@mcp.tool()
 @mcp.resource("resolve://timelines")
 def list_timelines() -> List[str]:
     """List all timelines in the current project."""
@@ -440,15 +441,8 @@ def insert_title(title_name: str, duration: int = None,
     return timeline_operations.insert_title(resolve, title_name, duration, timeline_name)
 
 
-@mcp.tool()
-def insert_fusion_title(title_name: str, duration: int = None,
-                        timeline_name: str = None) -> str:
-    """Insert a Fusion title into the timeline."""
-    resolve = get_resolve()
-    return timeline_operations.insert_fusion_title(resolve, title_name, duration, timeline_name)
-
-
 # --- Special Timeline Operations ---
+
 
 @mcp.tool()
 def create_compound_clip(clip_info: Dict[str, Any] = None,
@@ -1673,7 +1667,7 @@ def get_stereo_right_floating_window_params(clip_name: str,
 
 
 # ============================================================
-# Full Coverage: Remaining Timeline/TimelineItem Tools
+# Full Coverage: Additional Timeline Tools
 # ============================================================
 
 @mcp.tool()
@@ -1720,32 +1714,6 @@ def get_timeline_mediapool_item(timeline_name: str = None) -> Dict[str, Any]:
 
 
 @mcp.tool()
-def stabilize_clip(clip_name: str, timeline_name: str = None) -> str:
-    """Stabilize a timeline clip.
-    
-    Args:
-        clip_name: Name of the clip in timeline
-        timeline_name: Optional timeline name, uses current if not specified
-    """
-    resolve = get_resolve()
-    return timeline_operations.stabilize_clip(resolve, clip_name, timeline_name)
-
-
-@mcp.tool()
-def smart_reframe_clip(clip_name: str, timeline_name: str = None) -> str:
-    """Apply Smart Reframe to a timeline clip.
-    
-    Automatically reframes footage for different aspect ratios.
-    
-    Args:
-        clip_name: Name of the clip in timeline
-        timeline_name: Optional timeline name, uses current if not specified
-    """
-    resolve = get_resolve()
-    return timeline_operations.smart_reframe_clip(resolve, clip_name, timeline_name)
-
-
-@mcp.tool()
 def export_lut_from_clip(clip_name: str, export_path: str,
                           export_type: int = 0,
                           timeline_name: str = None) -> str:
@@ -1761,18 +1729,6 @@ def export_lut_from_clip(clip_name: str, export_path: str,
     return timeline_operations.export_lut_from_clip(
         resolve, clip_name, export_path, export_type, timeline_name
     )
-
-
-@mcp.tool()
-def get_linked_items(clip_name: str, timeline_name: str = None) -> Dict[str, Any]:
-    """Get linked timeline items for a clip.
-    
-    Args:
-        clip_name: Name of the clip in timeline
-        timeline_name: Optional timeline name, uses current if not specified
-    """
-    resolve = get_resolve()
-    return timeline_operations.get_linked_items(resolve, clip_name, timeline_name)
 
 
 @mcp.tool()
@@ -1800,58 +1756,6 @@ def get_source_audio_channel_mapping(clip_name: str, timeline_name: str = None) 
 
 
 @mcp.tool()
-def set_color_output_cache(clip_name: str, enabled: bool,
-                            timeline_name: str = None) -> str:
-    """Set color output cache for a timeline item.
-    
-    Args:
-        clip_name: Name of the clip in timeline
-        enabled: Enable or disable caching
-        timeline_name: Optional timeline name, uses current if not specified
-    """
-    resolve = get_resolve()
-    return timeline_operations.set_color_output_cache(resolve, clip_name, enabled, timeline_name)
-
-
-@mcp.tool()
-def get_color_output_cache_enabled(clip_name: str, timeline_name: str = None) -> Dict[str, Any]:
-    """Check if color output cache is enabled for a timeline item.
-    
-    Args:
-        clip_name: Name of the clip in timeline
-        timeline_name: Optional timeline name, uses current if not specified
-    """
-    resolve = get_resolve()
-    return timeline_operations.get_color_output_cache_enabled(resolve, clip_name, timeline_name)
-
-
-@mcp.tool()
-def set_fusion_output_cache(clip_name: str, cache_value: str,
-                             timeline_name: str = None) -> str:
-    """Set Fusion output cache for a timeline item.
-    
-    Args:
-        clip_name: Name of the clip in timeline
-        cache_value: 'auto', 'on', or 'off'
-        timeline_name: Optional timeline name, uses current if not specified
-    """
-    resolve = get_resolve()
-    return timeline_operations.set_fusion_output_cache(resolve, clip_name, cache_value, timeline_name)
-
-
-@mcp.tool()
-def get_fusion_output_cache_enabled(clip_name: str, timeline_name: str = None) -> Dict[str, Any]:
-    """Check if Fusion output cache is enabled for a timeline item.
-    
-    Args:
-        clip_name: Name of the clip in timeline
-        timeline_name: Optional timeline name, uses current if not specified
-    """
-    resolve = get_resolve()
-    return timeline_operations.get_fusion_output_cache_enabled(resolve, clip_name, timeline_name)
-
-
-@mcp.tool()
 def get_clip_mediapool_item(clip_name: str, timeline_name: str = None) -> Dict[str, Any]:
     """Get MediaPoolItem for a timeline clip.
     
@@ -1861,3 +1765,91 @@ def get_clip_mediapool_item(clip_name: str, timeline_name: str = None) -> Dict[s
     """
     resolve = get_resolve()
     return timeline_operations.get_clip_mediapool_item(resolve, clip_name, timeline_name)
+
+
+# ============================================================
+# Phase 2: Timeline Mark In/Out & Track Tools
+# ============================================================
+
+@mcp.tool()
+def get_timeline_mark_in_out(timeline_name: str = None) -> Dict[str, Any]:
+    """Get mark in/out points for the timeline."""
+    resolve = get_resolve()
+    return timeline_operations.get_timeline_mark_in_out(resolve, timeline_name)
+
+
+@mcp.tool()
+def set_timeline_mark_in_out(mark_in: int, mark_out: int, type: str = "all", timeline_name: str = None) -> str:
+    """Set mark in/out points for the timeline.
+
+    Args:
+        mark_in: Start frame
+        mark_out: End frame
+        type: 'video', 'audio', or 'all'
+        timeline_name: Optional timeline name
+    """
+    resolve = get_resolve()
+    return timeline_operations.set_timeline_mark_in_out(resolve, mark_in, mark_out, type, timeline_name)
+
+
+@mcp.tool()
+def clear_timeline_mark_in_out(type: str = "all", timeline_name: str = None) -> str:
+    """Clear mark in/out points for the timeline."""
+    resolve = get_resolve()
+    return timeline_operations.clear_timeline_mark_in_out(resolve, type, timeline_name)
+
+
+@mcp.tool()
+def get_track_sub_type(track_type: str, track_index: int, timeline_name: str = None) -> str:
+    """Get the sub-type (format) of an audio track (e.g. 'mono', 'stereo', '5.1').
+
+    Args:
+        track_type: 'audio' (only audio tracks have subtypes usually)
+        track_index: 1-based track index
+        timeline_name: Optional timeline name
+    """
+    resolve = get_resolve()
+    return timeline_operations.get_track_sub_type(resolve, track_type, int(track_index), timeline_name)
+
+
+# ============================================================
+# Phase 2b: TimelineItem Tools
+# ============================================================
+
+@mcp.tool()
+def get_timeline_item_source_start_end(item_index: int, track_type: str = "video", track_index: int = 1, timeline_name: str = None) -> Dict[str, Any]:
+    """Get source start and end frames for a timeline item.
+    
+    Args:
+        item_index: 1-based index of item in track.
+        track_type: 'video' or 'audio'
+        track_index: 1-based track index.
+        timeline_name: Optional.
+    """
+    resolve = get_resolve()
+    return timeline_operations.get_timeline_item_source_start_end(resolve, None, item_index, track_type, track_index, timeline_name)
+
+@mcp.tool()
+def get_timeline_item_fusion_comp(comp_index: int, item_index: int, track_type: str = "video", track_index: int = 1) -> Dict[str, Any]:
+    """Get Fusion composition by index from a timeline item.
+    
+    Args:
+        comp_index: 1-based index of fusion comp.
+        item_index: 1-based index of item.
+    """
+    resolve = get_resolve()
+    return timeline_operations.get_timeline_item_fusion_comp_by_index(resolve, comp_index, item_index, track_type, track_index)
+
+@mcp.tool()
+def delete_timeline_item_take(take_index: int, item_index: int, track_type: str = "video", track_index: int = 1) -> str:
+    """Delete a take from a timeline item."""
+    resolve = get_resolve()
+    return timeline_operations.delete_take_by_index(resolve, take_index, item_index, track_type, track_index)
+
+@mcp.tool()
+def get_timeline_item_current_version(item_index: int, track_type: str = "video", track_index: int = 1) -> Dict[str, Any]:
+    """Get the current version of the timeline item."""
+    resolve = get_resolve()
+    return timeline_operations.get_timeline_item_version(resolve, item_index, track_type, track_index)
+
+

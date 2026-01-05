@@ -127,15 +127,57 @@ def parse_ai_segments(ai_selection_text: str, whisper_data: dict = None) -> List
         logger.info(f"Parsed {len(segments)} segments from timecode format")
         return segments
     
-    # Method 3: Parse text format (Reel N: start - end)
+    # Method 3: Parse segment indices (requires whisper_data)
+    # Check this BEFORE flexible text matching to prioritize explicit segment references
+    if whisper_data:
+        whisper_segments = whisper_data.get("segments", [])
+        if whisper_segments:
+            # Look for patterns like "0, 3, 5-8" or "segments 1, 2, 3"
+            index_pattern = r'(\d+)(?:\s*[-–]\s*(\d+))?'
+            
+            # First check if this looks like an index-based selection
+            # We look for specific keywords indicating index selection
+            # Allow optional colon/s separator (e.g. "Segments: 0-2")
+            if re.search(r'(?:segment|use|include|select|#)[^\d\n]*\d', ai_selection_text, re.IGNORECASE):
+                # Extra check: if it looks like timecode "00:00", don't treat as index
+                if not re.search(r'\d{1,2}:\d{2}', ai_selection_text):
+                    found_segments = []
+                    for match in re.finditer(index_pattern, ai_selection_text):
+                        # Filter out things that look like float/time text (e.g. "12.5" - skip 12 and 5?)
+                        # The regex (\d+) matches integer parts. 
+                        # If the text was "12.5", the . matches neither.
+                        # But we need to be careful not to match timestamps as indices.
+                        
+                        start_idx = int(match.group(1))
+                        end_idx = int(match.group(2)) if match.group(2) else start_idx
+                        
+                        # Sanity check: indices shouldn't be huge usually, unless valid
+                        if start_idx < len(whisper_segments):
+                            for idx in range(start_idx, min(end_idx + 1, len(whisper_segments))):
+                                seg = whisper_segments[idx]
+                                found_segments.append({
+                                    "start": seg.get("start", 0),
+                                    "end": seg.get("end", 0),
+                                    "title": seg.get("text", "")[:50].strip()
+                                })
+                    
+                    if found_segments:
+                        logger.info(f"Parsed {len(found_segments)} segments from index format")
+                        return found_segments
+
+    # Method 4: Parse text format (Reel N: start - end)
     # Patterns to try in order of specificity
     patterns = [
+        # "12.5 - 45.0: Some description" or "12.5-45.0 (description)"
+        # Check this BEFORE the "Reel N" pattern to avoid "12.5" being parsed as "12" "." "5"
+        r'(?:^|\n)\s*(\d+\.?\d*)\s*[-–]\s*(\d+\.?\d*)\s*[:(-]\s*(.+?)(?=[)\n]|$)',
+        
         # "Reel 1: 12.5 - 45.0 (Hook about coding)" or "Segment 2: 60-90 - Description"
-        r'(?:Reel|Segment|Part|Clip|Cut)?\s*\d*\s*[:.]?\s*(\d+\.?\d*)\s*[-–]\s*(\d+\.?\d*)\s*(?:[-:(]\s*(.+?)\s*[):]?)?(?:\n|$)',
-        # "12.5 - 45.0: Some description" or "12.5-45.0 (description)"  
-        r'(\d+\.?\d*)\s*[-–]\s*(\d+\.?\d*)\s*[:(-]\s*(.+?)(?:[)\n]|$)',
+        # Handles optional prefixes like "Reel 1:", "1.", etc.
+        r'(?:^|\n)\s*(?:Reel|Segment|Part|Clip|Cut)?\s*\d*\s*[:.]?\s*(\d+\.?\d*)\s*[-–]\s*(\d+\.?\d*)\s*(?:[-:(]\s*(.+?)\s*[):]?)?(?=\n|$)',
+        
         # Simple "12.5 - 45.0" without description
-        r'(\d+\.?\d*)\s*[-–]\s*(\d+\.?\d*)(?:\s|$)',
+        r'(?:^|\n)\s*(\d+\.?\d*)\s*[-–]\s*(\d+\.?\d*)(?:\s|$)',
     ]
     
     for pattern in patterns:
@@ -156,31 +198,6 @@ def parse_ai_segments(ai_selection_text: str, whisper_data: dict = None) -> List
             if segments:
                 logger.info(f"Parsed {len(segments)} segments from text format")
                 return segments
-    
-    # Method 4: Parse segment indices (requires whisper_data)
-    if whisper_data:
-        whisper_segments = whisper_data.get("segments", [])
-        if whisper_segments:
-            # Look for patterns like "0, 3, 5-8" or "segments 1, 2, 3"
-            index_pattern = r'(\d+)(?:\s*[-–]\s*(\d+))?'
-            
-            # First check if this looks like an index-based selection
-            if re.search(r'(?:segment|use|include|select|#)\s*\d', ai_selection_text, re.IGNORECASE):
-                for match in re.finditer(index_pattern, ai_selection_text):
-                    start_idx = int(match.group(1))
-                    end_idx = int(match.group(2)) if match.group(2) else start_idx
-                    
-                    for idx in range(start_idx, min(end_idx + 1, len(whisper_segments))):
-                        seg = whisper_segments[idx]
-                        segments.append({
-                            "start": seg.get("start", 0),
-                            "end": seg.get("end", 0),
-                            "title": seg.get("text", "")[:50].strip()
-                        })
-                
-                if segments:
-                    logger.info(f"Parsed {len(segments)} segments from index format")
-                    return segments
     
     logger.warning(f"Could not parse segments from: {ai_selection_text[:200]}...")
     return segments

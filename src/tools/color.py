@@ -196,33 +196,6 @@ def set_node_enabled(node_index: int, enabled: bool) -> str:
         return f"Error: {e}"
 
 
-@mcp.tool()
-def reset_all_grades() -> str:
-    """Reset all grades on the current clip."""
-    resolve = get_resolve()
-    if not resolve:
-        return "Error: Not connected"
-    
-    pm = resolve.GetProjectManager()
-    project = pm.GetCurrentProject() if pm else None
-    timeline = project.GetCurrentTimeline() if project else None
-    
-    if not timeline:
-        return "Error: No timeline"
-    
-    try:
-        item = timeline.GetCurrentVideoItem()
-        if not item:
-            return "Error: No clip selected"
-        
-        graph = item.GetNodeGraph()
-        if graph and graph.ResetAllGrades():
-            return "All grades reset"
-        return "Failed to reset grades"
-    except Exception as e:
-        return f"Error: {e}"
-
-
 # ============================================================
 # Phase 6: Gallery Operations
 # ============================================================
@@ -595,44 +568,6 @@ def apply_grade_from_drx(clip_name: str, drx_path: str,
         return "Failed to apply DRX grade"
     except AttributeError:
         return "Error: ApplyGradeFromDRX not available"
-    except Exception as e:
-        return f"Error: {e}"
-
-
-@mcp.tool()
-def set_node_cache_mode(node_index: int, mode: int) -> str:
-    """Set the cache mode for a color node.
-    
-    Args:
-        node_index: Index of the node (1-based)
-        mode: Cache mode (0 = None, 1 = Smart, 2 = User)
-    """
-    resolve = get_resolve()
-    if not resolve:
-        return "Error: Not connected"
-    
-    pm = resolve.GetProjectManager()
-    project = pm.GetCurrentProject() if pm else None
-    timeline = project.GetCurrentTimeline() if project else None
-    
-    if not timeline:
-        return "Error: No timeline"
-    
-    try:
-        item = timeline.GetCurrentVideoItem()
-        if not item:
-            return "Error: No clip selected"
-        
-        graph = item.GetNodeGraph()
-        if not graph:
-            return "Error: No node graph"
-        
-        mode_names = {0: "None", 1: "Smart", 2: "User"}
-        if graph.SetNodeCacheMode(node_index, mode):
-            return f"Set node {node_index} cache mode to {mode_names.get(mode, mode)}"
-        return "Failed to set cache mode"
-    except AttributeError:
-        return "Error: SetNodeCacheMode not available"
     except Exception as e:
         return f"Error: {e}"
 
@@ -1049,3 +984,80 @@ def reset_all_grades(clip_name: str, timeline_name: str = None) -> str:
                     return f"Error: {e}"
     
     return f"Error: Clip not found: {clip_name}"
+
+
+# ============================================================
+# Phase 4.8: Gallery Extensions
+# ============================================================
+
+from src.api.gallery_operations import (
+    delete_stills_from_album as delete_stills_impl,
+    get_still_label as get_still_label_impl,
+    set_still_label as set_still_label_impl,
+)
+
+@mcp.tool()
+def delete_gallery_stills(album_name: str = None, still_labels: List[str] = None) -> str:
+    """Delete stills from a gallery album.
+    
+    Args:
+        album_name: Name of the album (uses current if not specified)
+        still_labels: Optional list of still labels/names to delete. 
+                     If None, deletes ALL stills in the album (Use with caution).
+    """
+    resolve = get_resolve()
+    return delete_stills_impl(resolve, album_name, still_labels)
+
+@mcp.tool()
+def get_gallery_still_label(still_index: int, album_name: str = None) -> Dict[str, Any]:
+    """Get the label of a specific still in a gallery album.
+    
+    Args:
+        still_index: Index of the still (0-based)
+        album_name: Name of the album (uses current if not specified)
+    """
+    resolve = get_resolve()
+    return get_still_label_impl(resolve, album_name, still_index)
+
+@mcp.tool()
+def set_gallery_still_label(label: str, still_index: int, album_name: str = None) -> str:
+    """Set the label of a specific still in a gallery album.
+    
+    Args:
+        label: New label for the still
+        still_index: Index of the still (0-based)
+        album_name: Name of the album (uses current if not specified)
+    """
+    resolve = get_resolve()
+    return set_still_label_impl(resolve, label, album_name, still_index)
+
+
+# ============================================================
+# Phase 4.9: Graph Extensions
+# ============================================================
+
+from src.api.color_operations import (
+    get_node_label as get_node_label_impl,
+    get_node_lut as get_node_lut_impl,
+)
+
+@mcp.tool()
+def get_node_label(node_index: int) -> Dict[str, Any]:
+    """Get the label of a specific node in the current grade.
+    
+    Args:
+        node_index: Index of the node (1-based)
+    """
+    resolve = get_resolve()
+    return get_node_label_impl(resolve, node_index)
+
+@mcp.tool()
+def get_node_lut(node_index: int) -> Dict[str, Any]:
+    """Get the LUT applied to a specific node in the current grade.
+    
+    Args:
+        node_index: Index of the node (1-based)
+    """
+    resolve = get_resolve()
+    return get_node_lut_impl(resolve, node_index)
+

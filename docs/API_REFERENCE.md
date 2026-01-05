@@ -98,6 +98,9 @@ Manage media files and organization.
 | `export_folder` | Export to DRB | `folder_name`, `export_path`, `export_type` |
 | `transcribe_folder_audio` | Transcribe folder audio | `folder_name`, `language` |
 | `clear_folder_transcription_native` | Clear folder transcription | `folder_name` |
+| `import_folder_from_drb` | Import folder from DRB | `path`, `source_bin_name` |
+| `delete_folder` | Delete folder | `folder_name` |
+| `get_folder_is_stale` | Check folder staleness | `folder_name` |
 
 ### Resources
 
@@ -179,6 +182,12 @@ Color grading operations.
 | `set_color_wheel_param` | Set wheel param | `wheel`, `param`, `value`, `node_index` |
 | `add_node` | Add node | `node_type`, `label` |
 | `copy_grade` | Copy grade | `source_clip_name`, `target_clip_name`, `mode` |
+| `get_node_label` | Get node label | `node_index` |
+| `get_node_lut` | Get node LUT | `node_index` |
+| `grab_still` | Grab still | `still_album` |
+| `delete_gallery_stills` | Delete stills | `album_name`, `still_labels` |
+| `get_still_label` | Get still label | `still_index`, `album_name` |
+| `set_still_label` | Set still label | `label`, `still_index`, `album_name` |
 
 ### Resources
 
@@ -212,13 +221,16 @@ Rendering and export.
 
 ## Summary
 
-| Category | Tools | Resources | Total |
-|----------|-------|-----------|-------|
-| Transcription | 7 | 1 | 8 |
-| Timeline | 11 | 6 | 17 |
-| Media Pool | 17 | 3 | 20 |
-| Project | 15 | 10 | 25 |
-| Smart Editing | 6 | 0 | 6 |
-| Color | 4 | 2 | 6 |
-| Delivery | 3 | 2 | 5 |
-| **Total** | **63** | **24** | **87** |
+> **Note**: This reference covers core tools only. For the complete list of **273 tools + 38 resources**, see [CAPABILITIES.md](../CAPABILITIES.md).
+
+| Category | Tools (this doc) | Resources | Notes |
+|----------|------------------|-----------|-------|
+| Transcription | 7 | 1 | Whisper integration |
+| Timeline | 11 | 6 | Core operations |
+| Media Pool | 20 | 3 | Clip management |
+| Project | 15 | 10 | Settings & lifecycle |
+| Smart Editing | 6 | 0 | AI-powered |
+| Color | 10 | 2 | Basic grading |
+| Delivery | 3 | 2 | Render queue |
+| **Documented Here** | **72** | **24** | **96 endpoints** |
+| **Full Server** | **273** | **38** | **311 endpoints** |

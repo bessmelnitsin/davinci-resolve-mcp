@@ -56,6 +56,12 @@ class MockFolder:
     
     def GetName(self) -> str:
         return self._name
+        
+    def GetIsFolderStale(self) -> bool:
+        return False
+    
+    def Export(self, path: str) -> bool:
+        return True
     
     def GetClipList(self) -> List[MockMediaPoolItem]:
         return self._clips
@@ -108,6 +114,17 @@ class MockMediaPool:
     def AppendToTimeline(self, clips: List) -> List:
         return clips  # Simplified
     
+    def ImportFolderFromFile(self, path: str, source_bin_name: str = None) -> MockFolder:
+        folder_name = source_bin_name if source_bin_name else path.split("/")[-1].split(".")[0]
+        return self.AddSubFolder(self._root_folder, folder_name)
+    
+    def DeleteFolders(self, folders: List[MockFolder]) -> bool:
+        for folder in folders:
+            # Simplified deletion from root or subfolders
+            if folder in self._root_folder._subfolders:
+                self._root_folder._subfolders.remove(folder)
+        return True
+    
     def CreateEmptyTimeline(self, name: str) -> 'MockTimeline':
         timeline = MockTimeline(name)
         
@@ -135,7 +152,12 @@ class MockTimelineItem:
         self._end = end
         self._fusion_comps = []
         self._keyframes = {}  # {property: [{frame: 10, value: 1.0, interp: 0}]}
+        self._keyframes = {}  # {property: [{frame: 10, value: 1.0, interp: 0}]}
         self._properties = {}
+        self._grade = MockGrade()
+    
+    def GetCurrentGrade(self):
+        return self._grade
     
     def GetName(self) -> str:
         return self._name
@@ -211,6 +233,19 @@ class MockTimelineItem:
     def SetProperty(self, key: str, value: Any) -> bool:
         self._properties[key] = value
         return True
+        
+    def GetSourceStartFrame(self) -> int:
+        return 0
+        
+    def GetSourceEndFrame(self) -> int:
+        return 100
+        
+    def DeleteTakeByIndex(self, index: int) -> bool:
+        return True
+        
+    def GetCurrentVersion(self) -> Dict[str, Any]:
+        return {"versionName": "Version 1"}
+
 
 
 class MockTimeline:
@@ -305,6 +340,18 @@ class MockTimeline:
         
     def SetCurrentSelectedItem(self, item) -> bool:
         return True
+        
+    def GetMarkInOut(self) -> Dict:
+        return {"in": 0, "out": 100}
+
+    def SetMarkInOut(self, in_point: int, out_point: int, type: str = "all") -> bool:
+        return True
+
+    def ClearMarkInOut(self, type: str = "all") -> bool:
+        return True
+
+    def GetTrackSubType(self, track_type: str, index: int) -> str:
+        return "stereo"
 
 
 class MockStill:
@@ -351,8 +398,55 @@ class MockGalleryAlbum:
             return True
         return False
         
+    def DeleteStills(self, stills: List[MockStill]) -> bool:
+        for still in stills:
+            if still in self._stills:
+                self._stills.remove(still)
+        return True
+        
     def AddStill(self, still: MockStill):
         self._stills.append(still)
+        
+    def GetLabel(self, still: MockStill) -> str:
+        return still.GetLabel()
+    
+    def SetLabel(self, still: MockStill, label: str) -> bool:
+        return still.SetLabel(label)
+
+
+class MockGrade:
+    """Mock Color Grade."""
+    def __init__(self):
+        self._nodes = {}
+        self._current_node = 1
+        self._node_count = 5
+        
+    def GetNodeCount(self) -> int:
+        return self._node_count
+    
+    def GetCurrentNode(self) -> int:
+        return self._current_node
+    
+    def SetCurrentNode(self, index: int) -> bool:
+        if 1 <= index <= self._node_count:
+            self._current_node = index
+            return True
+        return False
+        
+    def GetNodeName(self, index: int) -> str:
+        return f"Node {index}"
+    
+    def GetNodeLabel(self, index: int) -> str:
+        return f"Label {index}"
+        
+    def GetLUT(self, index: int) -> str:
+        return f"LUT_{index}.cube"
+        
+    def ApplyLUT(self, index: int, path: str) -> bool:
+        return True
+    
+    def ResetAllGrades(self) -> bool:
+        return True
 
 
 class MockGallery:
@@ -382,6 +476,15 @@ class MockGallery:
         still = MockStill(f"id_{len(self._current_album._stills) + 1}", f"Still {len(self._current_album._stills) + 1}")
         self._current_album.AddStill(still)
         return True
+        
+    def GetGalleryStillAlbums(self) -> List[MockGalleryAlbum]:
+        return self._albums
+        
+    def GetAlbumName(self, album: MockGalleryAlbum) -> str:
+        return album.GetName()
+    
+    def GetLabel(self, still: MockStill) -> str:
+        return still.GetLabel()
 
 
 class MockProject:

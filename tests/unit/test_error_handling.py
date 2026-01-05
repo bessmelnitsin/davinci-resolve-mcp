@@ -58,7 +58,7 @@ class TestCustomExceptions:
         """Test ProjectNotOpenError defaults."""
         error = ProjectNotOpenError()
         
-        assert "не открыт" in error.message.lower() or "not open" in error.message.lower()
+        assert "не открыт" in error.message.lower() or "no project is open" in error.message.lower()
         assert "open_project" in error.suggestion.lower() or "create_project" in error.suggestion.lower()
     
     def test_timeline_not_found_error(self):

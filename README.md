@@ -319,7 +319,7 @@ For a complete manual installation:
 
 ## Available Features
 
-**145 MCP tools + 34 resources** across 7 modules. See [CAPABILITIES.md](CAPABILITIES.md) for complete reference.
+**273 MCP tools + 38 resources** across 9 modules. See [CAPABILITIES.md](CAPABILITIES.md) for complete reference.
 
 ### Navigation
 - Page switching (media/cut/edit/fusion/color/fairlight/deliver)

@@ -988,3 +988,31 @@ def export_folder_to_drb(folder_name: str, output_path: str) -> str:
     """
     resolve = get_resolve()
     return export_folder_impl(resolve, folder_name, output_path)
+
+
+from src.api.media_operations import (
+    import_folder_from_file as import_folder_impl,
+    delete_folder as delete_folder_impl,
+)
+
+@mcp.tool()
+def import_folder_from_drb(file_path: str, source_bin_name: str = None) -> str:
+    """Import a folder from a DRB file.
+    
+    Args:
+        file_path: Path to the .drb file
+        source_bin_name: Optional name of specific bin to import
+    """
+    resolve = get_resolve()
+    return import_folder_impl(resolve, file_path, source_bin_name)
+
+@mcp.tool()
+def delete_folder(folder_name: str) -> str:
+    """Delete a folder/bin from the media pool.
+    
+    Args:
+        folder_name: Name of the folder to delete
+    """
+    resolve = get_resolve()
+    return delete_folder_impl(resolve, folder_name)
+

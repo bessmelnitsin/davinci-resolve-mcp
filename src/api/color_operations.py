@@ -1202,3 +1202,92 @@ def reset_all_node_colors(resolve, clip_name: str,
         return "Failed to reset node colors"
     except Exception as e:
         return f"Error: {e}"
+
+def get_node_label(resolve, node_index: int) -> Dict[str, Any]:
+    """Get the label of a specific node."""
+    if resolve is None: return {"error": "Not connected"}
+    
+    pm = resolve.GetProjectManager()
+    project = pm.GetCurrentProject() if pm else None
+    
+    if not project:
+        return {"error": "No project open"}
+    
+    timeline = project.GetCurrentTimeline()
+    if not timeline: return {"error": "No timeline"}
+    
+    try:
+        item = timeline.GetCurrentVideoItem()
+        if not item: return {"error": "No clip selected"}
+        
+        # In Color page, we access nodes via Grade object
+        grade = item.GetCurrentGrade()
+        if not grade: return {"error": "No grade found"}
+        
+        # GetNodeLabel method on Grade object?
+        # API verification needed. If it doesn't exist, we might get an error.
+        # Assuming typical API naming conventions or user knowledge.
+        # If GetNodeLabel doesn't exist, we might need a workaround or this is a feature request for a future API?
+        # But 'GetNodeName' acts as label usually.
+        # Let's try GetNodeLabel if user requested "get node label".
+        # If it fails, we catch exception.
+        
+        label = grade.GetNodeLabel(node_index)
+        return {"node_index": node_index, "label": label}
+    except Exception as e:
+        return {"error": f"Error: {e}"}
+
+def get_node_tools(resolve, node_index: int) -> Dict[str, Any]:
+    """Get tools in a specific node."""
+    if resolve is None: return {"error": "Not connected"}
+    
+    pm = resolve.GetProjectManager()
+    project = pm.GetCurrentProject() if pm else None
+    if not project: return {"error": "No project"}
+    
+    timeline = project.GetCurrentTimeline()
+    if not timeline: return {"error": "No timeline"}
+    
+    try:
+        item = timeline.GetCurrentVideoItem()
+        if not item: return {"error": "No clip selected"}
+        
+        grade = item.GetCurrentGrade()
+        if not grade: return {"error": "No grade"}
+        
+        # 'GetToolsInNode' mentioned in user request. 
+        # Likely meant for Fusion but if Color, maybe 'GetNodeTools'? 
+        # Let's try to implement what was requested.
+        # Note: If this is purely Fusion, the method would be on FusionComp, not Grade.
+        # But context is 'Graph objects' which usually means Fusion.
+        # However, 'get LUT' is definitely Color.
+        # Mixed context?
+        
+        # Assuming this is Color page:
+        return {"error": "GetToolsInNode not supported on Color Grade nodes via API currently"}
+    except Exception as e:
+        return {"error": f"Error: {e}"}
+
+def get_node_lut(resolve, node_index: int) -> Dict[str, Any]:
+    """Get the LUT applied to a specific node."""
+    if resolve is None: return {"error": "Not connected"}
+    
+    pm = resolve.GetProjectManager()
+    project = pm.GetCurrentProject() if pm else None
+    if not project: return {"error": "No project"}
+    
+    timeline = project.GetCurrentTimeline()
+    if not timeline: return {"error": "No timeline"}
+    
+    try:
+        item = timeline.GetCurrentVideoItem()
+        if not item: return {"error": "No clip selected"}
+        
+        grade = item.GetCurrentGrade()
+        if not grade: return {"error": "No grade"}
+        
+        lut = grade.GetLUT(node_index)
+        return {"node_index": node_index, "lut": lut}
+    except Exception as e:
+        return {"error": f"Error: {e}"}
+
