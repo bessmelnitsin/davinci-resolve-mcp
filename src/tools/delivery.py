@@ -396,3 +396,89 @@ def export_current_frame_as_still(file_path: str) -> str:
         return "Failed to export frame (check file path and extension)"
     except Exception as e:
         return f"Error exporting frame: {e}"
+
+
+# ============================================================
+# Phase 3: Quick Export
+# ============================================================
+
+@mcp.tool()
+def quick_export(preset_name: str = None) -> str:
+    """Render using Quick Export with specified preset.
+    
+    Quick Export uses optimized render settings for common destinations.
+    
+    Args:
+        preset_name: Optional quick export preset name
+    """
+    resolve = get_resolve()
+    if not resolve:
+        return "Error: Not connected to DaVinci Resolve"
+    
+    pm = resolve.GetProjectManager()
+    if not pm:
+        return "Error: Failed to get Project Manager"
+    
+    project = pm.GetCurrentProject()
+    if not project:
+        return "Error: No project currently open"
+    
+    try:
+        if preset_name:
+            result = project.RenderWithQuickExport(preset_name)
+        else:
+            result = project.RenderWithQuickExport()
+        
+        if result:
+            return f"Started Quick Export" + (f" with preset '{preset_name}'" if preset_name else "")
+        return "Failed to start Quick Export"
+    except AttributeError:
+        return "Error: RenderWithQuickExport not available (requires DaVinci Resolve 18.5+)"
+    except Exception as e:
+        return f"Error: {e}"
+
+
+# ============================================================
+# Phase 4.9: Advanced Delivery Extensions
+# ============================================================
+
+from src.api.delivery_operations import (
+    get_render_resolutions as get_resolutions_impl,
+    get_quick_export_render_presets as get_quick_presets_impl,
+    render_with_quick_export as render_quick_impl,
+)
+
+
+@mcp.tool()
+def get_render_resolutions() -> Dict[str, Any]:
+    """Get available render resolutions for the current project.
+    
+    Returns a list of standard resolution options that can be used for rendering.
+    """
+    resolve = get_resolve()
+    return get_resolutions_impl(resolve)
+
+
+@mcp.tool()
+def get_quick_export_presets() -> Dict[str, Any]:
+    """Get available quick export render presets.
+    
+    Quick export presets provide optimized settings for common destinations like
+    YouTube, Vimeo, H.264, ProRes, etc.
+    """
+    resolve = get_resolve()
+    return get_quick_presets_impl(resolve)
+
+
+@mcp.tool()
+def render_with_quick_export(preset_name: str, output_path: str,
+                              timeline_name: str = None) -> str:
+    """Render a timeline using quick export with full path control.
+    
+    Args:
+        preset_name: Name of the quick export preset
+        output_path: Full path for the output file (include extension)
+        timeline_name: Optional timeline name, uses current if not specified
+    """
+    resolve = get_resolve()
+    return render_quick_impl(resolve, preset_name, output_path, timeline_name)

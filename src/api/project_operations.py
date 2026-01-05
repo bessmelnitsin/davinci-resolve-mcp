@@ -522,4 +522,133 @@ def set_current_database(resolve, db_info: Dict[str, str]) -> str:
         return "Failed to switch database"
     except Exception as e:
         return f"Error switching database: {e}"
- 
+
+
+# ============================================================
+# Phase 4.10: Cloud Projects
+# ============================================================
+
+def create_cloud_project(resolve, project_name: str) -> str:
+    """Create a new cloud project.
+    
+    Requires DaVinci Resolve with Blackmagic Cloud connection.
+    
+    Args:
+        resolve: DaVinci Resolve instance
+        project_name: Name for the new cloud project
+    """
+    if resolve is None:
+        return "Error: Not connected to DaVinci Resolve"
+    
+    if not project_name:
+        return "Error: Project name cannot be empty"
+    
+    project_manager = resolve.GetProjectManager()
+    if not project_manager:
+        return "Error: Failed to get Project Manager"
+    
+    try:
+        result = project_manager.CreateCloudProject(project_name)
+        if result:
+            return f"Created cloud project '{project_name}'"
+        return "Failed to create cloud project (check Blackmagic Cloud connection)"
+    except AttributeError:
+        return "Error: CreateCloudProject not available (requires DaVinci Resolve 18.5+)"
+    except Exception as e:
+        return f"Error: {e}"
+
+
+def load_cloud_project(resolve, project_name: str) -> str:
+    """Load (open) a cloud project.
+    
+    Args:
+        resolve: DaVinci Resolve instance
+        project_name: Name of the cloud project to load
+    """
+    if resolve is None:
+        return "Error: Not connected to DaVinci Resolve"
+    
+    if not project_name:
+        return "Error: Project name cannot be empty"
+    
+    project_manager = resolve.GetProjectManager()
+    if not project_manager:
+        return "Error: Failed to get Project Manager"
+    
+    try:
+        result = project_manager.LoadCloudProject(project_name)
+        if result:
+            return f"Loaded cloud project '{project_name}'"
+        return f"Failed to load cloud project '{project_name}'"
+    except AttributeError:
+        return "Error: LoadCloudProject not available (requires DaVinci Resolve 18.5+)"
+    except Exception as e:
+        return f"Error: {e}"
+
+
+def import_cloud_project(resolve, file_path: str, project_name: str = None) -> str:
+    """Import a project file to the cloud.
+    
+    Args:
+        resolve: DaVinci Resolve instance
+        file_path: Path to the project file (.drp format)
+        project_name: Optional name for the cloud project
+    """
+    if resolve is None:
+        return "Error: Not connected to DaVinci Resolve"
+    
+    import os
+    if not os.path.exists(file_path):
+        return f"Error: File not found: {file_path}"
+    
+    project_manager = resolve.GetProjectManager()
+    if not project_manager:
+        return "Error: Failed to get Project Manager"
+    
+    try:
+        if project_name:
+            result = project_manager.ImportCloudProject(file_path, project_name)
+        else:
+            result = project_manager.ImportCloudProject(file_path)
+        
+        if result:
+            return f"Imported project to cloud from '{file_path}'"
+        return "Failed to import project to cloud"
+    except AttributeError:
+        return "Error: ImportCloudProject not available (requires DaVinci Resolve 18.5+)"
+    except Exception as e:
+        return f"Error: {e}"
+
+
+def restore_cloud_project(resolve, folder_path: str, project_name: str = None) -> str:
+    """Restore a cloud project from a backup folder.
+    
+    Args:
+        resolve: DaVinci Resolve instance
+        folder_path: Path to the project backup folder
+        project_name: Optional name for the restored project
+    """
+    if resolve is None:
+        return "Error: Not connected to DaVinci Resolve"
+    
+    import os
+    if not os.path.exists(folder_path):
+        return f"Error: Folder not found: {folder_path}"
+    
+    project_manager = resolve.GetProjectManager()
+    if not project_manager:
+        return "Error: Failed to get Project Manager"
+    
+    try:
+        if project_name:
+            result = project_manager.RestoreCloudProject(folder_path, project_name)
+        else:
+            result = project_manager.RestoreCloudProject(folder_path)
+        
+        if result:
+            return f"Restored cloud project from '{folder_path}'"
+        return "Failed to restore cloud project"
+    except AttributeError:
+        return "Error: RestoreCloudProject not available (requires DaVinci Resolve 18.5+)"
+    except Exception as e:
+        return f"Error: {e}"

@@ -719,3 +719,443 @@ def set_current_database(db_info: Dict[str, str]) -> str:
     resolve = get_resolve()
     return set_db_impl(resolve, db_info)
 
+
+# ============================================================
+# Phase 3: Layout Presets
+# ============================================================
+
+@mcp.tool()
+def load_layout_preset(preset_name: str) -> str:
+    """Load a UI layout preset.
+    
+    Args:
+        preset_name: Name of the layout preset to load
+    """
+    resolve = get_resolve()
+    if not resolve:
+        return "Error: Not connected"
+    
+    try:
+        result = resolve.LoadLayoutPreset(preset_name)
+        if result:
+            return f"Loaded layout preset: {preset_name}"
+        return f"Failed to load preset '{preset_name}'"
+    except AttributeError:
+        return "Error: LoadLayoutPreset not available"
+    except Exception as e:
+        return f"Error: {e}"
+
+
+@mcp.tool()
+def save_layout_preset(preset_name: str) -> str:
+    """Save current UI layout as a preset.
+    
+    Args:
+        preset_name: Name for the new layout preset
+    """
+    resolve = get_resolve()
+    if not resolve:
+        return "Error: Not connected"
+    
+    try:
+        result = resolve.SaveLayoutPreset(preset_name)
+        if result:
+            return f"Saved layout preset: {preset_name}"
+        return f"Failed to save preset"
+    except AttributeError:
+        return "Error: SaveLayoutPreset not available"
+    except Exception as e:
+        return f"Error: {e}"
+
+
+@mcp.tool()
+def export_layout_preset(preset_name: str, file_path: str) -> str:
+    """Export a layout preset to a file.
+    
+    Args:
+        preset_name: Name of the preset to export
+        file_path: Path for the exported file
+    """
+    resolve = get_resolve()
+    if not resolve:
+        return "Error: Not connected"
+    
+    try:
+        result = resolve.ExportLayoutPreset(preset_name, file_path)
+        if result:
+            return f"Exported preset '{preset_name}' to: {file_path}"
+        return f"Failed to export preset"
+    except AttributeError:
+        return "Error: ExportLayoutPreset not available"
+    except Exception as e:
+        return f"Error: {e}"
+
+
+@mcp.tool()
+def import_layout_preset(file_path: str, preset_name: str = None) -> str:
+    """Import a layout preset from a file.
+    
+    Args:
+        file_path: Path to the preset file
+        preset_name: Optional name for the imported preset
+    """
+    resolve = get_resolve()
+    if not resolve:
+        return "Error: Not connected"
+    
+    try:
+        result = resolve.ImportLayoutPreset(file_path, preset_name)
+        if result:
+            return f"Imported layout preset from: {file_path}"
+        return f"Failed to import preset"
+    except AttributeError:
+        return "Error: ImportLayoutPreset not available"
+    except Exception as e:
+        return f"Error: {e}"
+
+
+@mcp.tool()
+def delete_layout_preset(preset_name: str) -> str:
+    """Delete a layout preset.
+    
+    Args:
+        preset_name: Name of the preset to delete
+    """
+    resolve = get_resolve()
+    if not resolve:
+        return "Error: Not connected"
+    
+    try:
+        result = resolve.DeleteLayoutPreset(preset_name)
+        if result:
+            return f"Deleted layout preset: {preset_name}"
+        return f"Failed to delete preset '{preset_name}'"
+    except AttributeError:
+        return "Error: DeleteLayoutPreset not available"
+    except Exception as e:
+        return f"Error: {e}"
+
+
+# ============================================================
+# Phase 3: Keyframe Mode
+# ============================================================
+
+@mcp.tool()
+def get_keyframe_mode() -> Dict[str, Any]:
+    """Get the current keyframe mode."""
+    resolve = get_resolve()
+    if not resolve:
+        return {"error": "Not connected"}
+    
+    pm = resolve.GetProjectManager()
+    project = pm.GetCurrentProject() if pm else None
+    
+    if not project:
+        return {"error": "No project open"}
+    
+    try:
+        mode = project.GetSetting("keyframeMode")
+        mode_names = {
+            "0": "All",
+            "1": "Color",
+            "2": "Sizing"
+        }
+        return {
+            "mode": mode,
+            "mode_name": mode_names.get(str(mode), "Unknown")
+        }
+    except Exception as e:
+        return {"error": f"Error: {e}"}
+
+
+@mcp.tool()
+def set_keyframe_mode(mode: int) -> str:
+    """Set the keyframe mode.
+    
+    Args:
+        mode: 0 = All, 1 = Color, 2 = Sizing
+    """
+    resolve = get_resolve()
+    if not resolve:
+        return "Error: Not connected"
+    
+    pm = resolve.GetProjectManager()
+    project = pm.GetCurrentProject() if pm else None
+    
+    if not project:
+        return "Error: No project open"
+    
+    try:
+        mode_names = {0: "All", 1: "Color", 2: "Sizing"}
+        result = project.SetSetting("keyframeMode", str(mode))
+        if result:
+            return f"Set keyframe mode to: {mode_names.get(mode, mode)}"
+        return "Failed to set keyframe mode"
+    except Exception as e:
+        return f"Error: {e}"
+
+
+# ============================================================
+# Phase 3: Render Preset Management
+# ============================================================
+
+@mcp.tool()
+def delete_render_preset(preset_name: str) -> str:
+    """Delete a render preset.
+    
+    Args:
+        preset_name: Name of the render preset to delete
+    """
+    resolve = get_resolve()
+    if not resolve:
+        return "Error: Not connected"
+    
+    pm = resolve.GetProjectManager()
+    project = pm.GetCurrentProject() if pm else None
+    
+    if not project:
+        return "Error: No project open"
+    
+    try:
+        result = project.DeleteRenderPreset(preset_name)
+        if result:
+            return f"Deleted render preset: {preset_name}"
+        return f"Failed to delete preset '{preset_name}'"
+    except AttributeError:
+        return "Error: DeleteRenderPreset not available"
+    except Exception as e:
+        return f"Error: {e}"
+
+
+@mcp.tool()
+def import_render_preset(file_path: str) -> str:
+    """Import a render preset from a file.
+    
+    Args:
+        file_path: Path to the render preset file
+    """
+    resolve = get_resolve()
+    if not resolve:
+        return "Error: Not connected"
+    
+    pm = resolve.GetProjectManager()
+    project = pm.GetCurrentProject() if pm else None
+    
+    if not project:
+        return "Error: No project open"
+    
+    try:
+        result = project.ImportRenderPreset(file_path)
+        if result:
+            return f"Imported render preset from: {file_path}"
+        return "Failed to import preset"
+    except AttributeError:
+        return "Error: ImportRenderPreset not available"
+    except Exception as e:
+        return f"Error: {e}"
+
+
+@mcp.tool()
+def export_render_preset(preset_name: str, file_path: str) -> str:
+    """Export a render preset to a file.
+    
+    Args:
+        preset_name: Name of the preset to export
+        file_path: Path for the exported file
+    """
+    resolve = get_resolve()
+    if not resolve:
+        return "Error: Not connected"
+    
+    pm = resolve.GetProjectManager()
+    project = pm.GetCurrentProject() if pm else None
+    
+    if not project:
+        return "Error: No project open"
+    
+    try:
+        result = project.ExportRenderPreset(preset_name, file_path)
+        if result:
+            return f"Exported render preset '{preset_name}' to: {file_path}"
+        return "Failed to export preset"
+    except AttributeError:
+        return "Error: ExportRenderPreset not available"
+    except Exception as e:
+        return f"Error: {e}"
+
+
+# ============================================================
+# Phase 3: Burn-in Presets
+# ============================================================
+
+@mcp.tool()
+def load_burn_in_preset(preset_name: str) -> str:
+    """Load a burn-in preset.
+    
+    Args:
+        preset_name: Name of the burn-in preset to load
+    """
+    resolve = get_resolve()
+    if not resolve:
+        return "Error: Not connected"
+    
+    pm = resolve.GetProjectManager()
+    project = pm.GetCurrentProject() if pm else None
+    
+    if not project:
+        return "Error: No project open"
+    
+    try:
+        result = project.LoadBurnInPreset(preset_name)
+        if result:
+            return f"Loaded burn-in preset: {preset_name}"
+        return f"Failed to load preset '{preset_name}'"
+    except AttributeError:
+        return "Error: LoadBurnInPreset not available"
+    except Exception as e:
+        return f"Error: {e}"
+
+
+@mcp.tool()
+def import_burn_in_preset(file_path: str) -> str:
+    """Import a burn-in preset from a file.
+    
+    Args:
+        file_path: Path to the burn-in preset file
+    """
+    resolve = get_resolve()
+    if not resolve:
+        return "Error: Not connected"
+    
+    pm = resolve.GetProjectManager()
+    project = pm.GetCurrentProject() if pm else None
+    
+    if not project:
+        return "Error: No project open"
+    
+    try:
+        result = project.ImportBurnInPreset(file_path)
+        if result:
+            return f"Imported burn-in preset from: {file_path}"
+        return "Failed to import preset"
+    except AttributeError:
+        return "Error: ImportBurnInPreset not available"
+    except Exception as e:
+        return f"Error: {e}"
+
+
+@mcp.tool()
+def export_burn_in_preset(preset_name: str, file_path: str) -> str:
+    """Export a burn-in preset to a file.
+    
+    Args:
+        preset_name: Name of the preset to export
+        file_path: Path for the exported file
+    """
+    resolve = get_resolve()
+    if not resolve:
+        return "Error: Not connected"
+    
+    pm = resolve.GetProjectManager()
+    project = pm.GetCurrentProject() if pm else None
+    
+    if not project:
+        return "Error: No project open"
+    
+    try:
+        result = project.ExportBurnInPreset(preset_name, file_path)
+        if result:
+            return f"Exported burn-in preset '{preset_name}' to: {file_path}"
+        return "Failed to export preset"
+    except AttributeError:
+        return "Error: ExportBurnInPreset not available"
+    except Exception as e:
+        return f"Error: {e}"
+
+
+# ============================================================
+# Phase 3: Miscellaneous
+# ============================================================
+
+@mcp.tool()
+def refresh_lut_list() -> str:
+    """Refresh the LUT list in DaVinci Resolve."""
+    resolve = get_resolve()
+    if not resolve:
+        return "Error: Not connected"
+    
+    pm = resolve.GetProjectManager()
+    project = pm.GetCurrentProject() if pm else None
+    
+    if not project:
+        return "Error: No project open"
+    
+    try:
+        result = project.RefreshLUTList()
+        if result:
+            return "LUT list refreshed"
+        return "Failed to refresh LUT list"
+    except AttributeError:
+        return "Error: RefreshLUTList not available"
+    except Exception as e:
+        return f"Error: {e}"
+
+
+# ============================================================
+# Phase 4.10: Cloud Projects
+# ============================================================
+
+from src.api.project_operations import (
+    create_cloud_project as create_cloud_impl,
+    load_cloud_project as load_cloud_impl,
+    import_cloud_project as import_cloud_impl,
+    restore_cloud_project as restore_cloud_impl,
+)
+
+
+@mcp.tool()
+def create_cloud_project(project_name: str) -> str:
+    """Create a new cloud project on Blackmagic Cloud.
+    
+    Requires DaVinci Resolve 18.5+ and active Blackmagic Cloud connection.
+    
+    Args:
+        project_name: Name for the new cloud project
+    """
+    resolve = get_resolve()
+    return create_cloud_impl(resolve, project_name)
+
+
+@mcp.tool()
+def load_cloud_project(project_name: str) -> str:
+    """Load (open) a cloud project from Blackmagic Cloud.
+    
+    Args:
+        project_name: Name of the cloud project to load
+    """
+    resolve = get_resolve()
+    return load_cloud_impl(resolve, project_name)
+
+
+@mcp.tool()
+def import_cloud_project(file_path: str, project_name: str = None) -> str:
+    """Import a local project file to Blackmagic Cloud.
+    
+    Args:
+        file_path: Path to the project file (.drp format)
+        project_name: Optional name for the cloud project
+    """
+    resolve = get_resolve()
+    return import_cloud_impl(resolve, file_path, project_name)
+
+
+@mcp.tool()
+def restore_cloud_project(folder_path: str, project_name: str = None) -> str:
+    """Restore a cloud project from a backup folder.
+    
+    Args:
+        folder_path: Path to the project backup folder
+        project_name: Optional name for the restored project
+    """
+    resolve = get_resolve()
+    return restore_cloud_impl(resolve, folder_path, project_name)

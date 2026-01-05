@@ -273,3 +273,43 @@ def get_timeline_item_audio_mapping(clip_name: str) -> Dict[str, Any]:
         return {"error": f"Clip '{clip_name}' not found"}
     except Exception as e:
         return {"error": f"Error: {e}"}
+
+
+# ============================================================
+# Phase 2.5: Fairlight Extensions
+# ============================================================
+
+@mcp.tool()
+def insert_audio_at_playhead(media_path: str, track_index: int = 1) -> str:
+    """Insert audio from a file at the current playhead position.
+    
+    Args:
+        media_path: Path to the audio file
+        track_index: Audio track index to insert on (1-based, default: 1)
+    """
+    resolve = get_resolve()
+    if not resolve:
+        return "Error: Not connected to DaVinci Resolve"
+    
+    pm = resolve.GetProjectManager()
+    if not pm:
+        return "Error: Failed to get Project Manager"
+    
+    project = pm.GetCurrentProject()
+    if not project:
+        return "Error: No project open"
+    
+    timeline = project.GetCurrentTimeline()
+    if not timeline:
+        return "Error: No timeline active"
+    
+    try:
+        result = timeline.InsertAudioToCurrentTrackAtPlayhead(media_path, track_index)
+        if result:
+            return f"Inserted audio at playhead on track {track_index}"
+        return "Failed to insert audio"
+    except AttributeError:
+        return "Error: InsertAudioToCurrentTrackAtPlayhead not available"
+    except Exception as e:
+        return f"Error inserting audio: {e}"
+

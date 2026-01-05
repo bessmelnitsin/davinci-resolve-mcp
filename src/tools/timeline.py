@@ -993,3 +993,871 @@ def set_timeline_start_timecode(timecode: str, timeline_name: str = None) -> str
         return "Failed to set start timecode"
     except Exception as e:
         return f"Error setting timecode: {e}"
+
+
+# ============================================================
+# Phase 1.5: TimelineItem Extensions
+# ============================================================
+
+def _find_timeline_item(resolve, clip_name: str, timeline_name: str = None):
+    """Helper to find a timeline item by name."""
+    pm = resolve.GetProjectManager()
+    if not pm:
+        return None, None, "No Project Manager"
+    
+    project = pm.GetCurrentProject()
+    if not project:
+        return None, None, "No project open"
+    
+    timeline = project.GetCurrentTimeline()
+    if timeline_name:
+        count = project.GetTimelineCount()
+        for i in range(1, count + 1):
+            tl = project.GetTimelineByIndex(i)
+            if tl and tl.GetName() == timeline_name:
+                timeline = tl
+                break
+    
+    if not timeline:
+        return None, None, "No timeline found"
+    
+    # Search for the item
+    for track_type in ["video", "audio"]:
+        track_count = timeline.GetTrackCount(track_type)
+        for i in range(1, track_count + 1):
+            items = timeline.GetItemListInTrack(track_type, i)
+            if items:
+                for item in items:
+                    if item.GetName() == clip_name:
+                        return item, timeline, None
+    
+    return None, timeline, f"Clip '{clip_name}' not found in timeline"
+
+
+@mcp.tool()
+def get_timeline_item_duration(clip_name: str, timeline_name: str = None) -> Dict[str, Any]:
+    """Get the duration of a timeline item in frames.
+    
+    Args:
+        clip_name: Name of the clip in timeline
+        timeline_name: Optional timeline name, uses current if not specified
+    """
+    resolve = get_resolve()
+    if resolve is None:
+        return {"error": "Not connected to DaVinci Resolve"}
+    
+    item, timeline, error = _find_timeline_item(resolve, clip_name, timeline_name)
+    if error:
+        return {"error": error}
+    
+    try:
+        duration = item.GetDuration()
+        return {
+            "clip_name": clip_name,
+            "duration_frames": duration,
+            "timeline": timeline.GetName()
+        }
+    except Exception as e:
+        return {"error": f"Error getting duration: {e}"}
+
+
+@mcp.tool()
+def get_timeline_item_start_end(clip_name: str, timeline_name: str = None) -> Dict[str, Any]:
+    """Get the start and end positions of a timeline item.
+    
+    Args:
+        clip_name: Name of the clip in timeline
+        timeline_name: Optional timeline name, uses current if not specified
+    """
+    resolve = get_resolve()
+    if resolve is None:
+        return {"error": "Not connected to DaVinci Resolve"}
+    
+    item, timeline, error = _find_timeline_item(resolve, clip_name, timeline_name)
+    if error:
+        return {"error": error}
+    
+    try:
+        start = item.GetStart()
+        end = item.GetEnd()
+        duration = item.GetDuration()
+        
+        # Try to get source info
+        source_start = None
+        source_end = None
+        try:
+            source_start = item.GetSourceStartFrame()
+            source_end = item.GetSourceEndFrame()
+        except:
+            pass
+        
+        result = {
+            "clip_name": clip_name,
+            "start_frame": start,
+            "end_frame": end,
+            "duration_frames": duration,
+            "timeline": timeline.GetName()
+        }
+        
+        if source_start is not None:
+            result["source_start_frame"] = source_start
+            result["source_end_frame"] = source_end
+        
+        return result
+    except Exception as e:
+        return {"error": f"Error getting position: {e}"}
+
+
+@mcp.tool()
+def get_timeline_item_media_pool_item(clip_name: str, 
+                                       timeline_name: str = None) -> Dict[str, Any]:
+    """Get the MediaPoolItem associated with a timeline item.
+    
+    Args:
+        clip_name: Name of the clip in timeline
+        timeline_name: Optional timeline name, uses current if not specified
+    """
+    resolve = get_resolve()
+    if resolve is None:
+        return {"error": "Not connected to DaVinci Resolve"}
+    
+    item, timeline, error = _find_timeline_item(resolve, clip_name, timeline_name)
+    if error:
+        return {"error": error}
+    
+    try:
+        mp_item = item.GetMediaPoolItem()
+        if mp_item:
+            return {
+                "clip_name": clip_name,
+                "media_pool_item": {
+                    "name": mp_item.GetName(),
+                    "id": mp_item.GetUniqueId() if hasattr(mp_item, 'GetUniqueId') else None,
+                    "media_id": mp_item.GetMediaId() if hasattr(mp_item, 'GetMediaId') else None,
+                }
+            }
+        return {"info": f"No MediaPoolItem found for '{clip_name}'"}
+    except Exception as e:
+        return {"error": f"Error getting MediaPoolItem: {e}"}
+
+
+@mcp.tool()
+def export_timeline_item_lut(clip_name: str, output_path: str,
+                              lut_type: int = 0,
+                              timeline_name: str = None) -> str:
+    """Export LUT from a timeline item's color grade.
+    
+    Args:
+        clip_name: Name of the clip in timeline
+        output_path: Path for exported LUT file (.cube format)
+        lut_type: LUT type (0=33 Point, 1=65 Point)
+        timeline_name: Optional timeline name, uses current if not specified
+    """
+    resolve = get_resolve()
+    if resolve is None:
+        return "Error: Not connected to DaVinci Resolve"
+    
+    item, timeline, error = _find_timeline_item(resolve, clip_name, timeline_name)
+    if error:
+        return f"Error: {error}"
+    
+    try:
+        result = item.ExportLUT(lut_type, output_path)
+        if result:
+            lut_name = "33 Point" if lut_type == 0 else "65 Point"
+            return f"Exported {lut_name} LUT to: {output_path}"
+        return "Failed to export LUT (check if clip has color grading)"
+    except AttributeError:
+        return "Error: ExportLUT not available (requires DaVinci Resolve Studio)"
+    except Exception as e:
+        return f"Error exporting LUT: {e}"
+
+
+@mcp.tool()
+def set_cdl_values(clip_name: str, 
+                   slope_r: float = 1.0, slope_g: float = 1.0, slope_b: float = 1.0,
+                   offset_r: float = 0.0, offset_g: float = 0.0, offset_b: float = 0.0,
+                   power_r: float = 1.0, power_g: float = 1.0, power_b: float = 1.0,
+                   saturation: float = 1.0,
+                   timeline_name: str = None) -> str:
+    """Set CDL (Color Decision List) values on a timeline item.
+    
+    Args:
+        clip_name: Name of the clip in timeline
+        slope_r/slope_g/slope_b: Slope values (default: 1.0)
+        offset_r/offset_g/offset_b: Offset values (default: 0.0)
+        power_r/power_g/power_b: Power values (default: 1.0)
+        saturation: Saturation value (default: 1.0)
+        timeline_name: Optional timeline name, uses current if not specified
+    """
+    resolve = get_resolve()
+    if resolve is None:
+        return "Error: Not connected to DaVinci Resolve"
+    
+    item, timeline, error = _find_timeline_item(resolve, clip_name, timeline_name)
+    if error:
+        return f"Error: {error}"
+    
+    try:
+        cdl_map = {
+            "NodeIndex": 1,  # Apply to first node
+            "Slope": {"R": slope_r, "G": slope_g, "B": slope_b},
+            "Offset": {"R": offset_r, "G": offset_g, "B": offset_b},
+            "Power": {"R": power_r, "G": power_g, "B": power_b},
+            "Saturation": saturation
+        }
+        
+        result = item.SetCDL(cdl_map)
+        if result:
+            return f"Applied CDL values to '{clip_name}'"
+        return "Failed to apply CDL values"
+    except AttributeError:
+        return "Error: SetCDL not available (requires DaVinci Resolve Studio)"
+    except Exception as e:
+        return f"Error setting CDL: {e}"
+
+
+@mcp.tool()
+def get_timeline_item_node_graph(clip_name: str, 
+                                  timeline_name: str = None) -> Dict[str, Any]:
+    """Get the node graph information for a timeline item.
+    
+    Args:
+        clip_name: Name of the clip in timeline
+        timeline_name: Optional timeline name, uses current if not specified
+    """
+    resolve = get_resolve()
+    if resolve is None:
+        return {"error": "Not connected to DaVinci Resolve"}
+    
+    item, timeline, error = _find_timeline_item(resolve, clip_name, timeline_name)
+    if error:
+        return {"error": error}
+    
+    try:
+        graph = item.GetNodeGraph()
+        if graph:
+            result = {
+                "clip_name": clip_name,
+                "node_graph": {}
+            }
+            
+            # Try to get node count
+            try:
+                num_nodes = graph.GetNumNodes()
+                result["node_graph"]["num_nodes"] = num_nodes
+                
+                # Get info for each node
+                nodes = []
+                for i in range(1, num_nodes + 1):
+                    node_info = {"index": i}
+                    try:
+                        node_info["label"] = graph.GetNodeLabel(i)
+                    except:
+                        pass
+                    nodes.append(node_info)
+                
+                result["node_graph"]["nodes"] = nodes
+            except Exception as e:
+                result["node_graph"]["error"] = str(e)
+            
+            return result
+        return {"info": f"No node graph found for '{clip_name}'"}
+    except AttributeError:
+        return {"error": "GetNodeGraph not available (requires DaVinci Resolve Studio)"}
+    except Exception as e:
+        return {"error": f"Error getting node graph: {e}"}
+
+
+# ============================================================
+# Phase 4.1: Timeline Marker CustomData Tools
+# ============================================================
+
+@mcp.tool()
+def add_timeline_marker_with_custom_data(frame: int, color: str = "Blue",
+                                          name: str = "", note: str = "",
+                                          duration: int = 1, custom_data: str = "",
+                                          timeline_name: str = None) -> str:
+    """Add a marker with custom data to the timeline.
+    
+    Custom data can be used to programmatically identify and manage markers.
+    
+    Args:
+        frame: Frame number for the marker
+        color: Marker color (Blue, Cyan, Green, Yellow, Red, Pink, Purple, etc.)
+        name: Marker name
+        note: Marker note/comment
+        duration: Duration in frames (default: 1)
+        custom_data: Custom data string for scripting/automation purposes
+        timeline_name: Optional timeline name, uses current if not specified
+    """
+    resolve = get_resolve()
+    return timeline_operations.add_marker_with_custom_data(
+        resolve, frame, color, name, note, duration, custom_data, timeline_name
+    )
+
+
+@mcp.tool()
+def get_timeline_marker_by_custom_data(custom_data: str,
+                                        timeline_name: str = None) -> Dict[str, Any]:
+    """Find a timeline marker by its custom data string.
+    
+    Args:
+        custom_data: Custom data string to search for
+        timeline_name: Optional timeline name, uses current if not specified
+    """
+    resolve = get_resolve()
+    return timeline_operations.get_timeline_marker_by_custom_data(
+        resolve, custom_data, timeline_name
+    )
+
+
+@mcp.tool()
+def update_timeline_marker_custom_data(frame: int, custom_data: str,
+                                         timeline_name: str = None) -> str:
+    """Update custom data for a timeline marker at a specific frame.
+    
+    Args:
+        frame: Frame number of the existing marker
+        custom_data: New custom data string to set
+        timeline_name: Optional timeline name, uses current if not specified
+    """
+    resolve = get_resolve()
+    return timeline_operations.update_timeline_marker_custom_data(
+        resolve, frame, custom_data, timeline_name
+    )
+
+
+@mcp.tool()
+def get_timeline_marker_custom_data(frame: int,
+                                     timeline_name: str = None) -> Dict[str, Any]:
+    """Get custom data from a timeline marker at a specific frame.
+    
+    Args:
+        frame: Frame number of the marker
+        timeline_name: Optional timeline name, uses current if not specified
+    """
+    resolve = get_resolve()
+    return timeline_operations.get_timeline_marker_custom_data(
+        resolve, frame, timeline_name
+    )
+
+
+@mcp.tool()
+def delete_timeline_marker_by_custom_data(custom_data: str,
+                                           timeline_name: str = None) -> str:
+    """Delete a timeline marker by its custom data string.
+    
+    Args:
+        custom_data: Custom data string of the marker to delete
+        timeline_name: Optional timeline name, uses current if not specified
+    """
+    resolve = get_resolve()
+    return timeline_operations.delete_timeline_marker_by_custom_data(
+        resolve, custom_data, timeline_name
+    )
+
+
+# ============================================================
+# Phase 4.1: Timeline Clip Linking Tools
+# ============================================================
+
+@mcp.tool()
+def set_clips_linked(clip_names: List[str], linked: bool,
+                     timeline_name: str = None) -> str:
+    """Link or unlink timeline clips.
+    
+    Links clips together so they move as a unit during editing.
+    
+    Args:
+        clip_names: List of clip names to link/unlink
+        linked: True to link clips together, False to unlink
+        timeline_name: Optional timeline name, uses current if not specified
+    """
+    resolve = get_resolve()
+    return timeline_operations.set_clips_linked(
+        resolve, clip_names, linked, timeline_name
+    )
+
+
+# ============================================================
+# Phase 4.1: Timeline Stills Tools
+# ============================================================
+
+@mcp.tool()
+def grab_timeline_still(timeline_name: str = None) -> Dict[str, Any]:
+    """Grab a still frame from the current playhead position.
+    
+    The still is saved to the current gallery album.
+    Must be on the Color page for this to work.
+    
+    Args:
+        timeline_name: Optional timeline name, uses current if not specified
+    """
+    resolve = get_resolve()
+    return timeline_operations.grab_timeline_still(resolve, timeline_name)
+
+
+@mcp.tool()
+def grab_all_timeline_stills(still_frame_source: int = 1,
+                              timeline_name: str = None) -> Dict[str, Any]:
+    """Grab stills from all clips in the timeline.
+    
+    Captures stills from every clip and saves to the gallery.
+    
+    Args:
+        still_frame_source: 1 = First frame of each clip, 2 = Middle frame
+        timeline_name: Optional timeline name, uses current if not specified
+    """
+    resolve = get_resolve()
+    return timeline_operations.grab_all_timeline_stills(
+        resolve, still_frame_source, timeline_name
+    )
+
+
+# ============================================================
+# Phase 4.1: Timeline Stereo Conversion Tool
+# ============================================================
+
+@mcp.tool()
+def convert_timeline_to_stereo(timeline_name: str = None) -> str:
+    """Convert a timeline to stereo 3D format.
+    
+    Enables stereo mode for VR/3D workflows.
+    
+    Args:
+        timeline_name: Optional timeline name, uses current if not specified
+    """
+    resolve = get_resolve()
+    return timeline_operations.convert_timeline_to_stereo(resolve, timeline_name)
+
+
+# ============================================================
+# Phase 4.2: TimelineItem Offset Tools
+# ============================================================
+
+@mcp.tool()
+def get_timeline_item_left_offset(clip_name: str,
+                                   timeline_name: str = None) -> Dict[str, Any]:
+    """Get the left offset (handle) of a timeline item in frames.
+    
+    Returns how many frames of source media are available before the clip's in point.
+    
+    Args:
+        clip_name: Name of the clip in timeline
+        timeline_name: Optional timeline name, uses current if not specified
+    """
+    resolve = get_resolve()
+    return timeline_operations.get_timeline_item_left_offset(
+        resolve, clip_name, timeline_name
+    )
+
+
+@mcp.tool()
+def get_timeline_item_right_offset(clip_name: str,
+                                    timeline_name: str = None) -> Dict[str, Any]:
+    """Get the right offset (handle) of a timeline item in frames.
+    
+    Returns how many frames of source media are available after the clip's out point.
+    
+    Args:
+        clip_name: Name of the clip in timeline
+        timeline_name: Optional timeline name, uses current if not specified
+    """
+    resolve = get_resolve()
+    return timeline_operations.get_timeline_item_right_offset(
+        resolve, clip_name, timeline_name
+    )
+
+
+# ============================================================
+# Phase 4.2: TimelineItem Take Management Tools  
+# ============================================================
+
+@mcp.tool()
+def add_take(clip_name: str, media_pool_item_name: str,
+             start_frame: int = None, end_frame: int = None,
+             timeline_name: str = None) -> str:
+    """Add a take to a timeline item's take selector.
+    
+    Takes allow you to swap between different source clips for the same timeline position.
+    
+    Args:
+        clip_name: Name of the timeline item
+        media_pool_item_name: Name of the media pool item to add as a take
+        start_frame: Optional start frame within the source media
+        end_frame: Optional end frame within the source media
+        timeline_name: Optional timeline name, uses current if not specified
+    """
+    resolve = get_resolve()
+    return timeline_operations.add_take(
+        resolve, clip_name, media_pool_item_name, start_frame, end_frame, timeline_name
+    )
+
+
+@mcp.tool()
+def get_takes_count(clip_name: str,
+                    timeline_name: str = None) -> Dict[str, Any]:
+    """Get the number of takes for a timeline item.
+    
+    Args:
+        clip_name: Name of the clip in timeline
+        timeline_name: Optional timeline name, uses current if not specified
+    """
+    resolve = get_resolve()
+    return timeline_operations.get_takes_count(resolve, clip_name, timeline_name)
+
+
+@mcp.tool()
+def get_take_by_index(clip_name: str, take_index: int,
+                      timeline_name: str = None) -> Dict[str, Any]:
+    """Get information about a specific take by its index.
+    
+    Args:
+        clip_name: Name of the clip in timeline
+        take_index: 1-based index of the take
+        timeline_name: Optional timeline name, uses current if not specified
+    """
+    resolve = get_resolve()
+    return timeline_operations.get_take_by_index(
+        resolve, clip_name, take_index, timeline_name
+    )
+
+
+@mcp.tool()
+def select_take_by_index(clip_name: str, take_index: int,
+                         timeline_name: str = None) -> str:
+    """Select a take by index to make it the active take.
+    
+    Args:
+        clip_name: Name of the clip in timeline
+        take_index: 1-based index of the take to select
+        timeline_name: Optional timeline name, uses current if not specified
+    """
+    resolve = get_resolve()
+    return timeline_operations.select_take_by_index(
+        resolve, clip_name, take_index, timeline_name
+    )
+
+
+@mcp.tool()
+def get_selected_take_index(clip_name: str,
+                            timeline_name: str = None) -> Dict[str, Any]:
+    """Get the currently selected take index.
+    
+    Args:
+        clip_name: Name of the clip in timeline
+        timeline_name: Optional timeline name, uses current if not specified
+    """
+    resolve = get_resolve()
+    return timeline_operations.get_selected_take_index(
+        resolve, clip_name, timeline_name
+    )
+
+
+@mcp.tool()
+def finalize_take(clip_name: str,
+                  timeline_name: str = None) -> str:
+    """Finalize the current take, removing all other takes.
+    
+    This makes the selected take permanent and removes all other take options.
+    
+    Args:
+        clip_name: Name of the clip in timeline
+        timeline_name: Optional timeline name, uses current if not specified
+    """
+    resolve = get_resolve()
+    return timeline_operations.finalize_take(resolve, clip_name, timeline_name)
+
+
+@mcp.tool()
+def delete_take_by_index(clip_name: str, take_index: int,
+                         timeline_name: str = None) -> str:
+    """Delete a specific take by its index.
+    
+    Args:
+        clip_name: Name of the clip in timeline
+        take_index: 1-based index of the take to delete
+        timeline_name: Optional timeline name, uses current if not specified
+    """
+    resolve = get_resolve()
+    return timeline_operations.delete_take_by_index(
+        resolve, clip_name, take_index, timeline_name
+    )
+
+
+# ============================================================
+# Phase 4.2: TimelineItem Magic Mask and Sidecar Tools
+# ============================================================
+
+@mcp.tool()
+def regenerate_magic_mask(clip_name: str,
+                          timeline_name: str = None) -> str:
+    """Regenerate Magic Mask for a timeline item.
+    
+    Use this to update an existing Magic Mask after making changes.
+    The Magic Mask must already exist on the clip.
+    
+    Args:
+        clip_name: Name of the clip in timeline
+        timeline_name: Optional timeline name, uses current if not specified
+    """
+    resolve = get_resolve()
+    return timeline_operations.regenerate_magic_mask(
+        resolve, clip_name, timeline_name
+    )
+
+
+@mcp.tool()
+def update_sidecar(clip_name: str,
+                   timeline_name: str = None) -> str:
+    """Update sidecar file for BRAW/R3D camera raw clips.
+    
+    Writes current clip settings to the sidecar file for BRAW or R3D clips.
+    
+    Args:
+        clip_name: Name of the clip in timeline
+        timeline_name: Optional timeline name, uses current if not specified
+    """
+    resolve = get_resolve()
+    return timeline_operations.update_sidecar(resolve, clip_name, timeline_name)
+
+
+# ============================================================
+# Phase 4.2: TimelineItem Stereo Tools (Optional)
+# ============================================================
+
+@mcp.tool()
+def get_stereo_convergence_values(clip_name: str,
+                                   timeline_name: str = None) -> Dict[str, Any]:
+    """Get stereo convergence values for a 3D timeline item.
+    
+    Args:
+        clip_name: Name of the clip in timeline
+        timeline_name: Optional timeline name, uses current if not specified
+    """
+    resolve = get_resolve()
+    return timeline_operations.get_stereo_convergence_values(
+        resolve, clip_name, timeline_name
+    )
+
+
+@mcp.tool()
+def get_stereo_left_floating_window_params(clip_name: str,
+                                            timeline_name: str = None) -> Dict[str, Any]:
+    """Get stereo left eye floating window parameters.
+    
+    Args:
+        clip_name: Name of the clip in timeline
+        timeline_name: Optional timeline name, uses current if not specified
+    """
+    resolve = get_resolve()
+    return timeline_operations.get_stereo_left_floating_window_params(
+        resolve, clip_name, timeline_name
+    )
+
+
+@mcp.tool()
+def get_stereo_right_floating_window_params(clip_name: str,
+                                             timeline_name: str = None) -> Dict[str, Any]:
+    """Get stereo right eye floating window parameters.
+    
+    Args:
+        clip_name: Name of the clip in timeline
+        timeline_name: Optional timeline name, uses current if not specified
+    """
+    resolve = get_resolve()
+    return timeline_operations.get_stereo_right_floating_window_params(
+        resolve, clip_name, timeline_name
+    )
+
+
+# ============================================================
+# Full Coverage: Remaining Timeline/TimelineItem Tools
+# ============================================================
+
+@mcp.tool()
+def get_current_clip_thumbnail(timeline_name: str = None) -> Dict[str, Any]:
+    """Get thumbnail image data for the current clip in Color page.
+    
+    Returns dict with width, height, format and whether data is available.
+    
+    Args:
+        timeline_name: Optional timeline name, uses current if not specified
+    """
+    resolve = get_resolve()
+    return timeline_operations.get_current_clip_thumbnail(resolve, timeline_name)
+
+
+@mcp.tool()
+def analyze_dolby_vision(timeline_name: str = None,
+                          clip_names: List[str] = None,
+                          blend_shots: bool = False) -> str:
+    """Analyze Dolby Vision on timeline clips.
+    
+    Requires DaVinci Resolve Studio with Dolby Vision license.
+    
+    Args:
+        timeline_name: Optional timeline name
+        clip_names: Optional list of clip names to analyze (all if empty)
+        blend_shots: Use blend shots analysis mode
+    """
+    resolve = get_resolve()
+    return timeline_operations.analyze_dolby_vision(
+        resolve, timeline_name, clip_names, blend_shots
+    )
+
+
+@mcp.tool()
+def get_timeline_mediapool_item(timeline_name: str = None) -> Dict[str, Any]:
+    """Get the MediaPoolItem corresponding to the timeline.
+    
+    Args:
+        timeline_name: Optional timeline name, uses current if not specified
+    """
+    resolve = get_resolve()
+    return timeline_operations.get_timeline_mediapool_item(resolve, timeline_name)
+
+
+@mcp.tool()
+def stabilize_clip(clip_name: str, timeline_name: str = None) -> str:
+    """Stabilize a timeline clip.
+    
+    Args:
+        clip_name: Name of the clip in timeline
+        timeline_name: Optional timeline name, uses current if not specified
+    """
+    resolve = get_resolve()
+    return timeline_operations.stabilize_clip(resolve, clip_name, timeline_name)
+
+
+@mcp.tool()
+def smart_reframe_clip(clip_name: str, timeline_name: str = None) -> str:
+    """Apply Smart Reframe to a timeline clip.
+    
+    Automatically reframes footage for different aspect ratios.
+    
+    Args:
+        clip_name: Name of the clip in timeline
+        timeline_name: Optional timeline name, uses current if not specified
+    """
+    resolve = get_resolve()
+    return timeline_operations.smart_reframe_clip(resolve, clip_name, timeline_name)
+
+
+@mcp.tool()
+def export_lut_from_clip(clip_name: str, export_path: str,
+                          export_type: int = 0,
+                          timeline_name: str = None) -> str:
+    """Export LUT from a timeline clip's color grade.
+    
+    Args:
+        clip_name: Name of the clip in timeline
+        export_path: Path for the exported LUT file
+        export_type: LUT size (0=17pt, 1=33pt, 2=65pt)
+        timeline_name: Optional timeline name, uses current if not specified
+    """
+    resolve = get_resolve()
+    return timeline_operations.export_lut_from_clip(
+        resolve, clip_name, export_path, export_type, timeline_name
+    )
+
+
+@mcp.tool()
+def get_linked_items(clip_name: str, timeline_name: str = None) -> Dict[str, Any]:
+    """Get linked timeline items for a clip.
+    
+    Args:
+        clip_name: Name of the clip in timeline
+        timeline_name: Optional timeline name, uses current if not specified
+    """
+    resolve = get_resolve()
+    return timeline_operations.get_linked_items(resolve, clip_name, timeline_name)
+
+
+@mcp.tool()
+def get_track_type_and_index(clip_name: str, timeline_name: str = None) -> Dict[str, Any]:
+    """Get the track type and index for a timeline item.
+    
+    Args:
+        clip_name: Name of the clip in timeline
+        timeline_name: Optional timeline name, uses current if not specified
+    """
+    resolve = get_resolve()
+    return timeline_operations.get_track_type_and_index(resolve, clip_name, timeline_name)
+
+
+@mcp.tool()
+def get_source_audio_channel_mapping(clip_name: str, timeline_name: str = None) -> Dict[str, Any]:
+    """Get source audio channel mapping for a timeline item.
+    
+    Args:
+        clip_name: Name of the clip in timeline
+        timeline_name: Optional timeline name, uses current if not specified
+    """
+    resolve = get_resolve()
+    return timeline_operations.get_source_audio_channel_mapping(resolve, clip_name, timeline_name)
+
+
+@mcp.tool()
+def set_color_output_cache(clip_name: str, enabled: bool,
+                            timeline_name: str = None) -> str:
+    """Set color output cache for a timeline item.
+    
+    Args:
+        clip_name: Name of the clip in timeline
+        enabled: Enable or disable caching
+        timeline_name: Optional timeline name, uses current if not specified
+    """
+    resolve = get_resolve()
+    return timeline_operations.set_color_output_cache(resolve, clip_name, enabled, timeline_name)
+
+
+@mcp.tool()
+def get_color_output_cache_enabled(clip_name: str, timeline_name: str = None) -> Dict[str, Any]:
+    """Check if color output cache is enabled for a timeline item.
+    
+    Args:
+        clip_name: Name of the clip in timeline
+        timeline_name: Optional timeline name, uses current if not specified
+    """
+    resolve = get_resolve()
+    return timeline_operations.get_color_output_cache_enabled(resolve, clip_name, timeline_name)
+
+
+@mcp.tool()
+def set_fusion_output_cache(clip_name: str, cache_value: str,
+                             timeline_name: str = None) -> str:
+    """Set Fusion output cache for a timeline item.
+    
+    Args:
+        clip_name: Name of the clip in timeline
+        cache_value: 'auto', 'on', or 'off'
+        timeline_name: Optional timeline name, uses current if not specified
+    """
+    resolve = get_resolve()
+    return timeline_operations.set_fusion_output_cache(resolve, clip_name, cache_value, timeline_name)
+
+
+@mcp.tool()
+def get_fusion_output_cache_enabled(clip_name: str, timeline_name: str = None) -> Dict[str, Any]:
+    """Check if Fusion output cache is enabled for a timeline item.
+    
+    Args:
+        clip_name: Name of the clip in timeline
+        timeline_name: Optional timeline name, uses current if not specified
+    """
+    resolve = get_resolve()
+    return timeline_operations.get_fusion_output_cache_enabled(resolve, clip_name, timeline_name)
+
+
+@mcp.tool()
+def get_clip_mediapool_item(clip_name: str, timeline_name: str = None) -> Dict[str, Any]:
+    """Get MediaPoolItem for a timeline clip.
+    
+    Args:
+        clip_name: Name of the clip in timeline
+        timeline_name: Optional timeline name, uses current if not specified
+    """
+    resolve = get_resolve()
+    return timeline_operations.get_clip_mediapool_item(resolve, clip_name, timeline_name)

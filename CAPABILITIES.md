@@ -6,17 +6,19 @@ Comprehensive list of all available MCP tools and resources.
 
 | Module | Tools | Resources | Description |
 |--------|-------|-----------|-------------|
-| Navigation | 2 | 2 | Page switching, system info |
-| Project | 27 | 12 | Project lifecycle, settings |
+| Navigation | 9 | 2 | Page switching, system info, keyframes |
+| Project | 49 | 12 | Lifecycle, settings, presets, cloud |
 | MediaStorage | 6 | 1 | Storage browsing, add to pool |
-| Media | 24 | 9 | MediaPool clips, metadata |
-| Timeline | 45 | 7 | Tracks, items, markers |
+| Media | 42 | 10 | MediaPool clips, metadata, mattes |
+| Timeline | 80 | 7 | Tracks, items, markers, stereo, cache |
 | Fusion | 11 | 2 | Compositions, Text+, templates |
-| Color | 16 | 0 | Node graph, gallery |
-| Fairlight | 12 | 0 | Audio, voice isolation |
-| Delivery | 16 | 2 | Render queue, presets |
+| Color | 42 | 0 | Node graph, gallery, color groups, cache |
+| Fairlight | 13 | 0 | Audio, voice isolation |
+| Delivery | 14 | 4 | Render queue, quick export |
 | Main | 0 | 1 | Status |
-| **Total** | **~175** | **~37** | **~212 endpoints** |
+| **Total** | **~276** | **~39** | **~315 endpoints** |
+
+> Note: Some tools have duplicates across modules that are filtered at runtime.
 
 ---
 
@@ -267,6 +269,16 @@ Browse mounted storage volumes and add files directly to MediaPool.
 | `get_timeline_bounds` | Get start/end frames |
 | `set_timeline_start_timecode` | Set start timecode |
 
+### TimelineItem Extensions (Phase 1.5)
+| Tool | Description |
+|------|-------------|
+| `get_timeline_item_duration` | Get item duration in frames |
+| `get_timeline_item_start_end` | Get start/end position |
+| `get_timeline_item_media_pool_item` | Get linked MediaPoolItem |
+| `export_timeline_item_lut` | Export LUT from color grade |
+| `set_cdl_values` | Set CDL (slope/offset/power/sat) |
+| `get_timeline_item_node_graph` | Get node graph info |
+
 ---
 
 ## Fusion Page
@@ -390,6 +402,78 @@ Visual effects and compositing tools.
 | `get_current_render_format` | Get current format/codec |
 | `set_render_mode` | Set render mode |
 | `export_current_frame_as_still` | Export frame as image |
+
+### Quick Export (Phase 4.9)
+| Tool | Description |
+|------|-------------|
+| `get_render_resolutions` | Get available resolutions |
+| `get_quick_export_presets` | Get quick export presets |
+| `render_with_quick_export` | Render with quick export to path |
+| `quick_export` | Start quick export |
+
+---
+
+## Cloud Projects (Phase 4.10)
+
+| Tool | Description |
+|------|-------------|
+| `create_cloud_project` | Create cloud project |
+| `load_cloud_project` | Load cloud project |
+| `import_cloud_project` | Import project to cloud |
+| `restore_cloud_project` | Restore cloud project |
+
+---
+
+## Phase 4 Additions
+
+### Timeline Extensions (4.1-4.2)
+| Tool | Description |
+|------|-------------|
+| `add_marker_with_custom_data` | Add marker with custom data |
+| `get_timeline_marker_by_custom_data` | Find marker by custom data |
+| `update_timeline_marker_custom_data` | Update marker custom data |
+| `set_clips_linked` | Link/unlink clips |
+| `grab_timeline_still` | Grab still from timeline |
+| `grab_all_timeline_stills` | Grab stills from all clips |
+| `convert_timeline_to_stereo` | Convert to stereo 3D |
+| `get_timeline_item_left_offset` | Get left handle |
+| `get_timeline_item_right_offset` | Get right handle |
+| `add_take` | Add take to selector |
+| `get_takes_count` | Get take count |
+| `select_take_by_index` | Select take |
+| `finalize_take` | Finalize current take |
+| `regenerate_magic_mask` | Regenerate Magic Mask |
+| `update_sidecar` | Update BRAW/R3D sidecar |
+
+### Media Extensions (4.3-4.4, 4.6)
+| Tool | Description |
+|------|-------------|
+| `get_third_party_metadata` | Get third-party metadata |
+| `set_third_party_metadata` | Set third-party metadata |
+| `link_full_resolution_media` | Link full-res media |
+| `replace_clip_preserve_sub_clip` | Replace preserving subclip |
+| `monitor_growing_file` | Monitor growing file |
+| `create_stereo_clip` | Create stereo clip |
+| `get_clip_matte_list` | Get clip mattes |
+| `get_timeline_matte_list` | Get timeline mattes |
+| `delete_clip_mattes` | Delete clip mattes |
+| `get_folder_is_stale` | Check folder staleness |
+| `get_folder_unique_id` | Get folder ID |
+| `export_folder_to_drb` | Export folder as DRB |
+
+### Color Group Extensions (4.7-4.8)
+| Tool | Description |
+|------|-------------|
+| `get_color_groups` | Get color groups |
+| `get_color_group_clips_in_timeline` | Get clips in color group |
+| `get_pre_clip_node_graph` | Get pre-clip node graph |
+| `get_post_clip_node_graph` | Get post-clip node graph |
+| `assign_to_color_group` | Assign clip to group |
+| `remove_from_color_group` | Remove from group |
+| `reset_all_node_colors` | Reset node colors |
+| `delete_stills_from_album` | Delete stills |
+| `get_still_label` | Get still label |
+| `set_still_label` | Set still label |
 
 ---
 

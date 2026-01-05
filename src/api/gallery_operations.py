@@ -503,3 +503,242 @@ def delete_color_preset_album(resolve, album_name: str) -> str:
         if current_page != "color":
             resolve.OpenPage(current_page)
         return f"Error deleting album: {str(e)}"
+
+
+# ============================================================
+# Phase 4.8: Gallery Extensions
+# ============================================================
+
+def delete_stills_from_album(resolve, album_name: str = None,
+                              still_labels: List[str] = None) -> str:
+    """Delete stills from a gallery album.
+    
+    Args:
+        resolve: DaVinci Resolve instance
+        album_name: Album name, uses current album if not specified
+        still_labels: List of still labels to delete; if None, deletes all
+    """
+    if resolve is None:
+        return "Error: Not connected to DaVinci Resolve"
+    
+    pm = resolve.GetProjectManager()
+    project = pm.GetCurrentProject() if pm else None
+    if not project:
+        return "Error: No project open"
+    
+    try:
+        gallery = project.GetGallery()
+        if not gallery:
+            return "Error: Failed to get gallery"
+        
+        # Get target album
+        target_album = None
+        if album_name:
+            for album in gallery.GetGalleryStillAlbums() or []:
+                if gallery.GetAlbumName(album) == album_name:
+                    target_album = album
+                    break
+        else:
+            target_album = gallery.GetCurrentStillAlbum()
+        
+        if not target_album:
+            return f"Error: Album not found: {album_name or 'current'}"
+        
+        stills = target_album.GetStills() or []
+        if not stills:
+            return "No stills in album to delete"
+        
+        # Filter stills to delete
+        stills_to_delete = []
+        if still_labels:
+            for still in stills:
+                label = target_album.GetLabel(still)
+                if label in still_labels:
+                    stills_to_delete.append(still)
+        else:
+            stills_to_delete = list(stills)
+        
+        if not stills_to_delete:
+            return "No matching stills found to delete"
+        
+        # Delete stills
+        result = target_album.DeleteStills(stills_to_delete)
+        if result:
+            return f"Deleted {len(stills_to_delete)} stills from album"
+        return "Failed to delete stills"
+    except Exception as e:
+        return f"Error: {e}"
+
+
+def get_still_label(resolve, album_name: str = None,
+                    still_index: int = 0) -> Dict[str, Any]:
+    """Get the label of a still in an album.
+    
+    Args:
+        resolve: DaVinci Resolve instance
+        album_name: Album name, uses current album if not specified
+        still_index: Index of the still (0-based)
+    """
+    if resolve is None:
+        return {"error": "Not connected to DaVinci Resolve"}
+    
+    pm = resolve.GetProjectManager()
+    project = pm.GetCurrentProject() if pm else None
+    if not project:
+        return {"error": "No project open"}
+    
+    try:
+        gallery = project.GetGallery()
+        if not gallery:
+            return {"error": "Failed to get gallery"}
+        
+        # Get target album
+        target_album = None
+        if album_name:
+            for album in gallery.GetGalleryStillAlbums() or []:
+                if gallery.GetAlbumName(album) == album_name:
+                    target_album = album
+                    break
+        else:
+            target_album = gallery.GetCurrentStillAlbum()
+        
+        if not target_album:
+            return {"error": f"Album not found: {album_name or 'current'}"}
+        
+        stills = target_album.GetStills() or []
+        if still_index >= len(stills):
+            return {"error": f"Still index {still_index} out of range (album has {len(stills)} stills)"}
+        
+        still = stills[still_index]
+        label = target_album.GetLabel(still)
+        return {
+            "album": gallery.GetAlbumName(target_album),
+            "still_index": still_index,
+            "label": label
+        }
+    except Exception as e:
+        return {"error": f"Error: {e}"}
+
+
+def set_still_label(resolve, label: str, album_name: str = None,
+                    still_index: int = 0) -> str:
+    """Set the label of a still in an album.
+    
+    Args:
+        resolve: DaVinci Resolve instance
+        label: New label for the still
+        album_name: Album name, uses current album if not specified
+        still_index: Index of the still (0-based)
+    """
+    if resolve is None:
+        return "Error: Not connected to DaVinci Resolve"
+    
+    pm = resolve.GetProjectManager()
+    project = pm.GetCurrentProject() if pm else None
+    if not project:
+        return "Error: No project open"
+    
+    try:
+        gallery = project.GetGallery()
+        if not gallery:
+            return "Error: Failed to get gallery"
+        
+        # Get target album
+        target_album = None
+        if album_name:
+            for album in gallery.GetGalleryStillAlbums() or []:
+                if gallery.GetAlbumName(album) == album_name:
+                    target_album = album
+                    break
+        else:
+            target_album = gallery.GetCurrentStillAlbum()
+        
+        if not target_album:
+            return f"Error: Album not found: {album_name or 'current'}"
+        
+        stills = target_album.GetStills() or []
+        if still_index >= len(stills):
+            return f"Error: Still index {still_index} out of range"
+        
+        still = stills[still_index]
+        result = target_album.SetLabel(still, label)
+        if result:
+            return f"Set label to '{label}' for still at index {still_index}"
+        return "Failed to set label"
+    except Exception as e:
+        return f"Error: {e}"
+
+
+# ============================================================
+# Full Coverage: PowerGrade Albums
+# ============================================================
+
+def get_gallery_powergrade_albums(resolve) -> List[Dict[str, Any]]:
+    """Get all PowerGrade albums in the gallery.
+    
+    Args:
+        resolve: DaVinci Resolve instance
+    """
+    if not resolve:
+        return [{"error": "Not connected to DaVinci Resolve"}]
+    
+    pm = resolve.GetProjectManager()
+    project = pm.GetCurrentProject() if pm else None
+    if not project:
+        return [{"error": "No project open"}]
+    
+    try:
+        gallery = project.GetGallery()
+        if not gallery:
+            return [{"error": "Failed to get gallery"}]
+        
+        albums = gallery.GetGalleryPowerGradeAlbums() or []
+        result = []
+        
+        for album in albums:
+            album_info = {
+                "name": gallery.GetAlbumName(album),
+                "stills": []
+            }
+            
+            stills = album.GetStills() or []
+            for still in stills:
+                album_info["stills"].append({
+                    "label": album.GetLabel(still)
+                })
+            
+            result.append(album_info)
+        
+        return result if result else [{"info": "No PowerGrade albums found"}]
+    except Exception as e:
+        return [{"error": f"Error: {e}"}]
+
+
+def create_gallery_powergrade_album(resolve) -> Dict[str, Any]:
+    """Create a new PowerGrade album in the gallery.
+    
+    Args:
+        resolve: DaVinci Resolve instance
+    """
+    if not resolve:
+        return {"error": "Not connected to DaVinci Resolve"}
+    
+    pm = resolve.GetProjectManager()
+    project = pm.GetCurrentProject() if pm else None
+    if not project:
+        return {"error": "No project open"}
+    
+    try:
+        gallery = project.GetGallery()
+        if not gallery:
+            return {"error": "Failed to get gallery"}
+        
+        album = gallery.CreateGalleryPowerGradeAlbum()
+        if album:
+            return {
+                "success": True,
+                "album_name": gallery.GetAlbumName(album)
+            }
+        return {"error": "Failed to create PowerGrade album"}
+    except Exception as e:
+        return {"error": f"Error: {e}"}

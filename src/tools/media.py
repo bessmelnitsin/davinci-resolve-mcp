@@ -523,3 +523,468 @@ def clear_clip_mark_in_out(clip_name: str) -> str:
     resolve = get_resolve()
     return clear_mark_in_out_impl(resolve, clip_name)
 
+
+# ============================================================
+# Phase 2.1: MediaPool Extensions
+# ============================================================
+
+def _get_media_pool_clip(resolve, clip_name: str):
+    """Helper to get a MediaPoolItem by name."""
+    pm = resolve.GetProjectManager()
+    if not pm:
+        return None, "No Project Manager"
+    
+    project = pm.GetCurrentProject()
+    if not project:
+        return None, "No project open"
+    
+    mp = project.GetMediaPool()
+    if not mp:
+        return None, "No Media Pool"
+    
+    from src.api.media_operations import get_all_media_pool_clips
+    clips = get_all_media_pool_clips(mp)
+    for clip in clips:
+        if clip.GetName() == clip_name:
+            return clip, None
+    
+    return None, f"Clip '{clip_name}' not found"
+
+
+@mcp.tool()
+def get_selected_clips() -> Dict[str, Any]:
+    """Get list of currently selected clips in the media pool."""
+    resolve = get_resolve()
+    if resolve is None:
+        return {"error": "Not connected to DaVinci Resolve"}
+    
+    pm = resolve.GetProjectManager()
+    if not pm:
+        return {"error": "No Project Manager"}
+    
+    project = pm.GetCurrentProject()
+    if not project:
+        return {"error": "No project open"}
+    
+    mp = project.GetMediaPool()
+    if not mp:
+        return {"error": "No Media Pool"}
+    
+    try:
+        selected = mp.GetSelectedClips()
+        if selected:
+            clips_info = []
+            for clip in selected:
+                clips_info.append({
+                    "name": clip.GetName(),
+                    "id": clip.GetUniqueId() if hasattr(clip, 'GetUniqueId') else None
+                })
+            return {
+                "selected_count": len(clips_info),
+                "clips": clips_info
+            }
+        return {"selected_count": 0, "clips": []}
+    except AttributeError:
+        return {"error": "GetSelectedClips not available (requires DaVinci Resolve 18+)"}
+    except Exception as e:
+        return {"error": f"Error getting selected clips: {e}"}
+
+
+@mcp.tool()
+def set_selected_clip(clip_name: str) -> str:
+    """Select a clip in the media pool by name.
+    
+    Args:
+        clip_name: Name of the clip to select
+    """
+    resolve = get_resolve()
+    if resolve is None:
+        return "Error: Not connected to DaVinci Resolve"
+    
+    clip, error = _get_media_pool_clip(resolve, clip_name)
+    if error:
+        return f"Error: {error}"
+    
+    pm = resolve.GetProjectManager()
+    project = pm.GetCurrentProject()
+    mp = project.GetMediaPool()
+    
+    try:
+        result = mp.SetSelectedClip(clip)
+        if result:
+            return f"Selected clip '{clip_name}'"
+        return f"Failed to select clip '{clip_name}'"
+    except AttributeError:
+        return "Error: SetSelectedClip not available (requires DaVinci Resolve 18+)"
+    except Exception as e:
+        return f"Error selecting clip: {e}"
+
+
+@mcp.tool()
+def export_metadata_csv(file_path: str) -> str:
+    """Export metadata for all clips in the media pool to a CSV file.
+    
+    Args:
+        file_path: Path for the exported CSV file
+    """
+    resolve = get_resolve()
+    if resolve is None:
+        return "Error: Not connected to DaVinci Resolve"
+    
+    pm = resolve.GetProjectManager()
+    if not pm:
+        return "Error: No Project Manager"
+    
+    project = pm.GetCurrentProject()
+    if not project:
+        return "Error: No project open"
+    
+    mp = project.GetMediaPool()
+    if not mp:
+        return "Error: No Media Pool"
+    
+    try:
+        result = mp.ExportMetadata(file_path)
+        if result:
+            return f"Exported metadata to: {file_path}"
+        return "Failed to export metadata"
+    except AttributeError:
+        return "Error: ExportMetadata not available (requires DaVinci Resolve 18+)"
+    except Exception as e:
+        return f"Error exporting metadata: {e}"
+
+
+@mcp.tool()
+def get_clip_audio_mapping(clip_name: str) -> Dict[str, Any]:
+    """Get the audio channel mapping for a media pool clip.
+    
+    Args:
+        clip_name: Name of the clip
+    """
+    resolve = get_resolve()
+    if resolve is None:
+        return {"error": "Not connected to DaVinci Resolve"}
+    
+    clip, error = _get_media_pool_clip(resolve, clip_name)
+    if error:
+        return {"error": error}
+    
+    try:
+        mapping = clip.GetAudioMapping()
+        if mapping:
+            return {
+                "clip_name": clip_name,
+                "audio_mapping": mapping
+            }
+        return {"clip_name": clip_name, "audio_mapping": None}
+    except AttributeError:
+        return {"error": "GetAudioMapping not available"}
+    except Exception as e:
+        return {"error": f"Error getting audio mapping: {e}"}
+
+
+@mcp.tool()
+def get_marker_by_custom_data(clip_name: str, custom_data: str) -> Dict[str, Any]:
+    """Find a marker by its custom data string.
+    
+    Args:
+        clip_name: Name of the clip
+        custom_data: Custom data string to search for
+    """
+    resolve = get_resolve()
+    if resolve is None:
+        return {"error": "Not connected to DaVinci Resolve"}
+    
+    clip, error = _get_media_pool_clip(resolve, clip_name)
+    if error:
+        return {"error": error}
+    
+    try:
+        marker = clip.GetMarkerByCustomData(custom_data)
+        if marker:
+            return {
+                "clip_name": clip_name,
+                "custom_data": custom_data,
+                "marker": marker
+            }
+        return {"info": f"No marker found with custom data: {custom_data}"}
+    except AttributeError:
+        return {"error": "GetMarkerByCustomData not available"}
+    except Exception as e:
+        return {"error": f"Error finding marker: {e}"}
+
+
+@mcp.tool()
+def update_marker_custom_data(clip_name: str, frame: int, custom_data: str) -> str:
+    """Update the custom data for a marker at a specific frame.
+    
+    Args:
+        clip_name: Name of the clip
+        frame: Frame number of the marker
+        custom_data: New custom data string
+    """
+    resolve = get_resolve()
+    if resolve is None:
+        return "Error: Not connected to DaVinci Resolve"
+    
+    clip, error = _get_media_pool_clip(resolve, clip_name)
+    if error:
+        return f"Error: {error}"
+    
+    try:
+        result = clip.UpdateMarkerCustomData(frame, custom_data)
+        if result:
+            return f"Updated marker custom data at frame {frame}"
+        return f"Failed to update marker at frame {frame}"
+    except AttributeError:
+        return "Error: UpdateMarkerCustomData not available"
+    except Exception as e:
+        return f"Error updating marker: {e}"
+
+
+@mcp.tool()
+def get_marker_custom_data(clip_name: str, frame: int) -> Dict[str, Any]:
+    """Get the custom data for a marker at a specific frame.
+    
+    Args:
+        clip_name: Name of the clip
+        frame: Frame number of the marker
+    """
+    resolve = get_resolve()
+    if resolve is None:
+        return {"error": "Not connected to DaVinci Resolve"}
+    
+    clip, error = _get_media_pool_clip(resolve, clip_name)
+    if error:
+        return {"error": error}
+    
+    try:
+        custom_data = clip.GetMarkerCustomData(frame)
+        return {
+            "clip_name": clip_name,
+            "frame": frame,
+            "custom_data": custom_data
+        }
+    except AttributeError:
+        return {"error": "GetMarkerCustomData not available"}
+    except Exception as e:
+        return {"error": f"Error getting marker data: {e}"}
+
+
+@mcp.tool()
+def delete_marker_by_custom_data(clip_name: str, custom_data: str) -> str:
+    """Delete a marker by its custom data string.
+    
+    Args:
+        clip_name: Name of the clip
+        custom_data: Custom data string of the marker to delete
+    """
+    resolve = get_resolve()
+    if resolve is None:
+        return "Error: Not connected to DaVinci Resolve"
+    
+    clip, error = _get_media_pool_clip(resolve, clip_name)
+    if error:
+        return f"Error: {error}"
+    
+    try:
+        result = clip.DeleteMarkerByCustomData(custom_data)
+        if result:
+            return f"Deleted marker with custom data: {custom_data}"
+        return f"Failed to delete marker"
+    except AttributeError:
+        return "Error: DeleteMarkerByCustomData not available"
+    except Exception as e:
+        return f"Error deleting marker: {e}"
+
+
+# ============================================================
+# Phase 4.3: MediaPoolItem Third Party Metadata Tools
+# ============================================================
+
+from src.api.media_operations import (
+    get_third_party_metadata as get_third_party_metadata_impl,
+    set_third_party_metadata as set_third_party_metadata_impl,
+    link_full_resolution_media as link_full_res_impl,
+    replace_clip_preserve_sub_clip as replace_preserve_impl,
+    monitor_growing_file as monitor_growing_impl,
+)
+
+
+@mcp.tool()
+def get_third_party_metadata(clip_name: str) -> Dict[str, Any]:
+    """Get third-party metadata for a media pool clip.
+    
+    Third-party metadata is custom metadata added by external applications.
+    
+    Args:
+        clip_name: Name of the clip
+    """
+    resolve = get_resolve()
+    return get_third_party_metadata_impl(resolve, clip_name)
+
+
+@mcp.tool()
+def set_third_party_metadata(clip_name: str, metadata: Dict[str, str]) -> str:
+    """Set third-party metadata for a media pool clip.
+    
+    Args:
+        clip_name: Name of the clip
+        metadata: Dictionary of metadata key-value pairs
+    """
+    resolve = get_resolve()
+    return set_third_party_metadata_impl(resolve, clip_name, metadata)
+
+
+@mcp.tool()
+def link_full_resolution_media(clip_name: str, media_file_path: str) -> str:
+    """Link full resolution media to a proxy or optimized media clip.
+    
+    Use this to reconnect high-res media after editing with proxies.
+    
+    Args:
+        clip_name: Name of the clip
+        media_file_path: Absolute path to the full resolution media file
+    """
+    resolve = get_resolve()
+    return link_full_res_impl(resolve, clip_name, media_file_path)
+
+
+@mcp.tool()
+def replace_clip_preserve_sub_clip(clip_name: str, new_media_file_path: str) -> str:
+    """Replace a clip while preserving sub-clip information.
+    
+    Useful when replacing media with a different version while keeping in/out points.
+    
+    Args:
+        clip_name: Name of the clip to replace
+        new_media_file_path: Absolute path to the new media file
+    """
+    resolve = get_resolve()
+    return replace_preserve_impl(resolve, clip_name, new_media_file_path)
+
+
+@mcp.tool()
+def monitor_growing_file(clip_name: str, enable: bool = True) -> str:
+    """Enable or disable monitoring of a growing file.
+    
+    Used for live recording workflows where media is still being captured.
+    
+    Args:
+        clip_name: Name of the clip
+        enable: True to start monitoring, False to stop
+    """
+    resolve = get_resolve()
+    return monitor_growing_impl(resolve, clip_name, enable)
+
+
+# ============================================================
+# Phase 4.4: MediaPool Matte Tools
+# ============================================================
+
+from src.api.media_operations import (
+    create_stereo_clip as create_stereo_impl,
+    get_clip_matte_list as get_clip_mattes_impl,
+    get_timeline_matte_list as get_timeline_mattes_impl,
+    delete_clip_mattes as delete_mattes_impl,
+)
+
+
+@mcp.tool()
+def create_stereo_clip(left_clip_name: str, right_clip_name: str) -> str:
+    """Create a stereo 3D clip from left and right eye clips.
+    
+    Args:
+        left_clip_name: Name of the left eye clip
+        right_clip_name: Name of the right eye clip
+    """
+    resolve = get_resolve()
+    return create_stereo_impl(resolve, left_clip_name, right_clip_name)
+
+
+@mcp.resource("resolve://clip-mattes/{clip_name}")
+def get_clip_mattes(clip_name: str) -> Dict[str, Any]:
+    """Get list of mattes associated with a clip."""
+    resolve = get_resolve()
+    return get_clip_mattes_impl(resolve, clip_name)
+
+
+@mcp.tool()
+def get_clip_matte_list(clip_name: str) -> Dict[str, Any]:
+    """Get list of mattes associated with a clip.
+    
+    Args:
+        clip_name: Name of the clip
+    """
+    resolve = get_resolve()
+    return get_clip_mattes_impl(resolve, clip_name)
+
+
+@mcp.tool()
+def get_timeline_matte_list(timeline_name: str = None) -> Dict[str, Any]:
+    """Get list of mattes in a timeline.
+    
+    Args:
+        timeline_name: Optional timeline name, uses current if not specified
+    """
+    resolve = get_resolve()
+    return get_timeline_mattes_impl(resolve, timeline_name)
+
+
+@mcp.tool()
+def delete_clip_mattes(clip_name: str, matte_paths: List[str] = None) -> str:
+    """Delete mattes associated with a clip.
+    
+    Args:
+        clip_name: Name of the clip
+        matte_paths: Optional list of specific matte paths to delete; if None, deletes all
+    """
+    resolve = get_resolve()
+    return delete_mattes_impl(resolve, clip_name, matte_paths)
+
+
+# ============================================================
+# Phase 4.6: Folder Operations Tools
+# ============================================================
+
+from src.api.media_operations import (
+    get_folder_is_stale as get_folder_stale_impl,
+    get_folder_unique_id as get_folder_id_impl,
+    export_folder as export_folder_impl,
+)
+
+
+@mcp.tool()
+def get_folder_is_stale(folder_name: str = None) -> Dict[str, Any]:
+    """Check if a folder's contents are stale and need refresh.
+    
+    Args:
+        folder_name: Folder name, uses current folder if not specified
+    """
+    resolve = get_resolve()
+    return get_folder_stale_impl(resolve, folder_name)
+
+
+@mcp.tool()
+def get_folder_unique_id(folder_name: str = None) -> Dict[str, Any]:
+    """Get the unique ID of a media pool folder.
+    
+    Args:
+        folder_name: Folder name, uses current folder if not specified
+    """
+    resolve = get_resolve()
+    return get_folder_id_impl(resolve, folder_name)
+
+
+@mcp.tool()
+def export_folder_to_drb(folder_name: str, output_path: str) -> str:
+    """Export a folder as a DRB (DaVinci Resolve Bin) file.
+    
+    DRB files can be imported into other projects to share bins and clips.
+    
+    Args:
+        folder_name: Name of the folder to export
+        output_path: Output file path with .drb extension
+    """
+    resolve = get_resolve()
+    return export_folder_impl(resolve, folder_name, output_path)

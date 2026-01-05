@@ -1526,4 +1526,453 @@ def clear_clip_mark_in_out(resolve, clip_name: str) -> str:
         return "Failed to clear mark in/out"
     except Exception as e:
         return f"Error clearing mark in/out: {e}"
- 
+
+
+# ============================================================
+# Phase 4.3: MediaPoolItem Third Party Metadata
+# ============================================================
+
+def get_third_party_metadata(resolve, clip_name: str) -> Dict[str, Any]:
+    """Get third-party metadata for a media pool item.
+    
+    Args:
+        resolve: DaVinci Resolve instance
+        clip_name: Name of the clip
+    
+    Returns:
+        Dict with third-party metadata or error
+    """
+    clip, error = find_clip_by_name(resolve, clip_name)
+    if error:
+        return {"error": error}
+    
+    try:
+        metadata = clip.GetThirdPartyMetadata()
+        return {
+            "clip_name": clip_name,
+            "third_party_metadata": metadata if metadata else {}
+        }
+    except Exception as e:
+        return {"error": f"Error getting third-party metadata: {e}"}
+
+
+def set_third_party_metadata(resolve, clip_name: str, 
+                              metadata: Dict[str, str]) -> str:
+    """Set third-party metadata for a media pool item.
+    
+    Args:
+        resolve: DaVinci Resolve instance
+        clip_name: Name of the clip
+        metadata: Dict of metadata key-value pairs
+    
+    Returns:
+        Success or error message
+    """
+    clip, error = find_clip_by_name(resolve, clip_name)
+    if error:
+        return f"Error: {error}"
+    
+    if not metadata:
+        return "Error: No metadata provided"
+    
+    try:
+        result = clip.SetThirdPartyMetadata(metadata)
+        if result:
+            return f"Set third-party metadata for '{clip_name}'"
+        return "Failed to set third-party metadata"
+    except Exception as e:
+        return f"Error setting third-party metadata: {e}"
+
+
+# ============================================================
+# Phase 4.3: MediaPoolItem Media Linking
+# ============================================================
+
+def link_full_resolution_media(resolve, clip_name: str, 
+                                media_file_path: str) -> str:
+    """Link full resolution media to a proxy or optimized media clip.
+    
+    Args:
+        resolve: DaVinci Resolve instance
+        clip_name: Name of the clip
+        media_file_path: Path to the full resolution media file
+    """
+    clip, error = find_clip_by_name(resolve, clip_name)
+    if error:
+        return f"Error: {error}"
+    
+    if not media_file_path:
+        return "Error: Media file path is required"
+    
+    import os
+    if not os.path.exists(media_file_path):
+        return f"Error: File '{media_file_path}' does not exist"
+    
+    try:
+        result = clip.LinkFullResolutionMedia(media_file_path)
+        if result:
+            return f"Linked full resolution media to '{clip_name}'"
+        return "Failed to link full resolution media"
+    except Exception as e:
+        return f"Error linking full resolution media: {e}"
+
+
+def replace_clip_preserve_sub_clip(resolve, clip_name: str,
+                                    new_media_file_path: str) -> str:
+    """Replace clip while preserving sub-clip information.
+    
+    Args:
+        resolve: DaVinci Resolve instance
+        clip_name: Name of the clip to replace
+        new_media_file_path: Path to the new media file
+    """
+    clip, error = find_clip_by_name(resolve, clip_name)
+    if error:
+        return f"Error: {error}"
+    
+    if not new_media_file_path:
+        return "Error: New media file path is required"
+    
+    import os
+    if not os.path.exists(new_media_file_path):
+        return f"Error: File '{new_media_file_path}' does not exist"
+    
+    try:
+        result = clip.ReplaceClipPreserveSubClip(new_media_file_path)
+        if result:
+            return f"Replaced clip '{clip_name}' preserving sub-clip info"
+        return "Failed to replace clip"
+    except Exception as e:
+        return f"Error replacing clip: {e}"
+
+
+# ============================================================
+# Phase 4.3: MediaPoolItem Monitoring
+# ============================================================
+
+def monitor_growing_file(resolve, clip_name: str, enable: bool = True) -> str:
+    """Enable or disable monitoring of a growing file.
+    
+    Used for recording workflows where media is still being captured.
+    
+    Args:
+        resolve: DaVinci Resolve instance
+        clip_name: Name of the clip
+        enable: True to start monitoring, False to stop
+    """
+    clip, error = find_clip_by_name(resolve, clip_name)
+    if error:
+        return f"Error: {error}"
+    
+    try:
+        result = clip.MonitorGrowingFile(enable)
+        if result:
+            action = "enabled" if enable else "disabled"
+            return f"Growing file monitoring {action} for '{clip_name}'"
+        return "Failed to set growing file monitoring"
+    except Exception as e:
+        return f"Error setting growing file monitoring: {e}"
+
+
+# ============================================================
+# Phase 4.4: MediaPool Matte Operations
+# ============================================================
+
+def create_stereo_clip(resolve, left_clip_name: str, right_clip_name: str) -> str:
+    """Create a stereo 3D clip from left and right eye clips.
+    
+    Args:
+        resolve: DaVinci Resolve instance
+        left_clip_name: Name of the left eye clip
+        right_clip_name: Name of the right eye clip
+    """
+    if resolve is None:
+        return "Error: Not connected to DaVinci Resolve"
+    
+    pm = resolve.GetProjectManager()
+    project = pm.GetCurrentProject() if pm else None
+    if not project:
+        return "Error: No project open"
+    
+    media_pool = project.GetMediaPool()
+    if not media_pool:
+        return "Error: No media pool"
+    
+    # Find both clips
+    left_clip, left_error = find_clip_by_name(resolve, left_clip_name)
+    if left_error:
+        return f"Error finding left clip: {left_error}"
+    
+    right_clip, right_error = find_clip_by_name(resolve, right_clip_name)
+    if right_error:
+        return f"Error finding right clip: {right_error}"
+    
+    try:
+        result = media_pool.CreateStereoClip(left_clip, right_clip)
+        if result:
+            return f"Created stereo clip from '{left_clip_name}' and '{right_clip_name}'"
+        return "Failed to create stereo clip"
+    except Exception as e:
+        return f"Error creating stereo clip: {e}"
+
+
+def get_clip_matte_list(resolve, clip_name: str) -> Dict[str, Any]:
+    """Get list of mattes associated with a clip.
+    
+    Args:
+        resolve: DaVinci Resolve instance
+        clip_name: Name of the clip
+    """
+    if resolve is None:
+        return {"error": "Not connected to DaVinci Resolve"}
+    
+    pm = resolve.GetProjectManager()
+    project = pm.GetCurrentProject() if pm else None
+    if not project:
+        return {"error": "No project open"}
+    
+    media_pool = project.GetMediaPool()
+    if not media_pool:
+        return {"error": "No media pool"}
+    
+    clip, error = find_clip_by_name(resolve, clip_name)
+    if error:
+        return {"error": error}
+    
+    try:
+        mattes = media_pool.GetClipMatteList(clip)
+        return {
+            "clip_name": clip_name,
+            "mattes": list(mattes) if mattes else []
+        }
+    except Exception as e:
+        return {"error": f"Error getting clip mattes: {e}"}
+
+
+def get_timeline_matte_list(resolve, timeline_name: str = None) -> Dict[str, Any]:
+    """Get list of mattes in a timeline.
+    
+    Args:
+        resolve: DaVinci Resolve instance
+        timeline_name: Optional timeline name, uses current if not specified
+    """
+    if resolve is None:
+        return {"error": "Not connected to DaVinci Resolve"}
+    
+    pm = resolve.GetProjectManager()
+    project = pm.GetCurrentProject() if pm else None
+    if not project:
+        return {"error": "No project open"}
+    
+    media_pool = project.GetMediaPool()
+    if not media_pool:
+        return {"error": "No media pool"}
+    
+    # Get timeline
+    timeline = None
+    if timeline_name:
+        count = project.GetTimelineCount()
+        for i in range(1, count + 1):
+            tl = project.GetTimelineByIndex(i)
+            if tl and tl.GetName() == timeline_name:
+                timeline = tl
+                break
+        if not timeline:
+            return {"error": f"Timeline '{timeline_name}' not found"}
+    else:
+        timeline = project.GetCurrentTimeline()
+        if not timeline:
+            return {"error": "No timeline currently active"}
+    
+    try:
+        mattes = media_pool.GetTimelineMatteList(timeline)
+        return {
+            "timeline_name": timeline.GetName(),
+            "mattes": list(mattes) if mattes else []
+        }
+    except Exception as e:
+        return {"error": f"Error getting timeline mattes: {e}"}
+
+
+def delete_clip_mattes(resolve, clip_name: str, 
+                        matte_paths: List[str] = None) -> str:
+    """Delete mattes associated with a clip.
+    
+    Args:
+        resolve: DaVinci Resolve instance
+        clip_name: Name of the clip
+        matte_paths: Optional list of matte paths to delete; if None, deletes all
+    """
+    if resolve is None:
+        return "Error: Not connected to DaVinci Resolve"
+    
+    pm = resolve.GetProjectManager()
+    project = pm.GetCurrentProject() if pm else None
+    if not project:
+        return "Error: No project open"
+    
+    media_pool = project.GetMediaPool()
+    if not media_pool:
+        return "Error: No media pool"
+    
+    clip, error = find_clip_by_name(resolve, clip_name)
+    if error:
+        return f"Error: {error}"
+    
+    try:
+        if matte_paths:
+            result = media_pool.DeleteClipMattes(clip, matte_paths)
+        else:
+            # Get all mattes and delete them
+            all_mattes = media_pool.GetClipMatteList(clip)
+            if all_mattes:
+                result = media_pool.DeleteClipMattes(clip, list(all_mattes))
+            else:
+                return f"No mattes found for '{clip_name}'"
+        
+        if result:
+            return f"Deleted mattes from '{clip_name}'"
+        return "Failed to delete mattes"
+    except Exception as e:
+        return f"Error deleting mattes: {e}"
+
+
+# ============================================================
+# Phase 4.6: Folder Operations
+# ============================================================
+
+def get_folder_is_stale(resolve, folder_name: str = None) -> Dict[str, Any]:
+    """Check if a folder's contents are stale (needs refresh).
+    
+    Args:
+        resolve: DaVinci Resolve instance
+        folder_name: Folder name, uses current folder if not specified
+    """
+    if resolve is None:
+        return {"error": "Not connected to DaVinci Resolve"}
+    
+    pm = resolve.GetProjectManager()
+    project = pm.GetCurrentProject() if pm else None
+    if not project:
+        return {"error": "No project open"}
+    
+    media_pool = project.GetMediaPool()
+    if not media_pool:
+        return {"error": "No media pool"}
+    
+    # Get folder
+    folder = None
+    if folder_name:
+        root_folder = media_pool.GetRootFolder()
+        if folder_name.lower() == "master" or folder_name == root_folder.GetName():
+            folder = root_folder
+        else:
+            for subfolder in root_folder.GetSubFolderList():
+                if subfolder.GetName() == folder_name:
+                    folder = subfolder
+                    break
+        if not folder:
+            return {"error": f"Folder '{folder_name}' not found"}
+    else:
+        folder = media_pool.GetCurrentFolder()
+        if not folder:
+            return {"error": "No current folder"}
+    
+    try:
+        is_stale = folder.GetIsFolderStale()
+        return {
+            "folder_name": folder.GetName(),
+            "is_stale": is_stale
+        }
+    except Exception as e:
+        return {"error": f"Error checking folder staleness: {e}"}
+
+
+def get_folder_unique_id(resolve, folder_name: str = None) -> Dict[str, Any]:
+    """Get the unique ID of a folder.
+    
+    Args:
+        resolve: DaVinci Resolve instance
+        folder_name: Folder name, uses current folder if not specified
+    """
+    if resolve is None:
+        return {"error": "Not connected to DaVinci Resolve"}
+    
+    pm = resolve.GetProjectManager()
+    project = pm.GetCurrentProject() if pm else None
+    if not project:
+        return {"error": "No project open"}
+    
+    media_pool = project.GetMediaPool()
+    if not media_pool:
+        return {"error": "No media pool"}
+    
+    # Get folder
+    folder = None
+    if folder_name:
+        root_folder = media_pool.GetRootFolder()
+        if folder_name.lower() == "master" or folder_name == root_folder.GetName():
+            folder = root_folder
+        else:
+            for subfolder in root_folder.GetSubFolderList():
+                if subfolder.GetName() == folder_name:
+                    folder = subfolder
+                    break
+        if not folder:
+            return {"error": f"Folder '{folder_name}' not found"}
+    else:
+        folder = media_pool.GetCurrentFolder()
+        if not folder:
+            return {"error": "No current folder"}
+    
+    try:
+        unique_id = folder.GetUniqueId()
+        return {
+            "folder_name": folder.GetName(),
+            "unique_id": unique_id
+        }
+    except Exception as e:
+        return {"error": f"Error getting folder unique ID: {e}"}
+
+
+def export_folder(resolve, folder_name: str, output_path: str) -> str:
+    """Export a folder as a DRB (DaVinci Resolve Bin) file.
+    
+    Args:
+        resolve: DaVinci Resolve instance
+        folder_name: Name of the folder to export
+        output_path: Output file path for the DRB file
+    """
+    if resolve is None:
+        return "Error: Not connected to DaVinci Resolve"
+    
+    pm = resolve.GetProjectManager()
+    project = pm.GetCurrentProject() if pm else None
+    if not project:
+        return "Error: No project open"
+    
+    media_pool = project.GetMediaPool()
+    if not media_pool:
+        return "Error: No media pool"
+    
+    # Get folder
+    folder = None
+    root_folder = media_pool.GetRootFolder()
+    if folder_name.lower() == "master" or folder_name == root_folder.GetName():
+        folder = root_folder
+    else:
+        for subfolder in root_folder.GetSubFolderList():
+            if subfolder.GetName() == folder_name:
+                folder = subfolder
+                break
+    
+    if not folder:
+        return f"Error: Folder '{folder_name}' not found"
+    
+    try:
+        result = folder.Export(output_path)
+        if result:
+            return f"Exported folder '{folder_name}' to '{output_path}'"
+        return "Failed to export folder"
+    except Exception as e:
+        return f"Error exporting folder: {e}"

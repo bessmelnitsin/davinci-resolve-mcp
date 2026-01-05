@@ -788,4 +788,266 @@ def get_render_formats(resolve) -> Dict[str, Any]:
         
         return result
     except Exception as e:
-        return {"error": f"Ошибка получения форматов: {str(e)}"} 
+        return {"error": f"Ошибка получения форматов: {str(e)}"}
+
+
+# ============================================================
+# Phase 4.9: Deliver Extensions
+# ============================================================
+
+def get_render_resolutions(resolve) -> Dict[str, Any]:
+    """Get available render resolutions for the current project.
+    
+    Args:
+        resolve: DaVinci Resolve instance
+    """
+    if not resolve:
+        return {"error": "Not connected to DaVinci Resolve"}
+    
+    pm = resolve.GetProjectManager()
+    project = pm.GetCurrentProject() if pm else None
+    if not project:
+        return {"error": "No project open"}
+    
+    try:
+        resolutions = project.GetRenderResolutions()
+        if resolutions:
+            return {
+                "resolutions": list(resolutions) if not isinstance(resolutions, dict) else resolutions,
+                "count": len(resolutions)
+            }
+        return {"resolutions": [], "count": 0}
+    except AttributeError:
+        return {"error": "GetRenderResolutions not available (requires DaVinci Resolve 18+)"}
+    except Exception as e:
+        return {"error": f"Error getting render resolutions: {e}"}
+
+
+def get_quick_export_render_presets(resolve) -> Dict[str, Any]:
+    """Get available quick export render presets.
+    
+    Args:
+        resolve: DaVinci Resolve instance
+    """
+    if not resolve:
+        return {"error": "Not connected to DaVinci Resolve"}
+    
+    pm = resolve.GetProjectManager()
+    project = pm.GetCurrentProject() if pm else None
+    if not project:
+        return {"error": "No project open"}
+    
+    try:
+        presets = project.GetQuickExportRenderPresets()
+        if presets:
+            return {
+                "quick_export_presets": list(presets),
+                "count": len(presets)
+            }
+        return {"quick_export_presets": [], "count": 0}
+    except AttributeError:
+        return {"error": "GetQuickExportRenderPresets not available (requires DaVinci Resolve 18+)"}
+    except Exception as e:
+        return {"error": f"Error getting quick export presets: {e}"}
+
+
+def render_with_quick_export(resolve, preset_name: str,
+                              output_path: str,
+                              timeline_name: str = None) -> str:
+    """Render using quick export with the specified preset.
+    
+    Quick export allows for faster exports with optimized settings.
+    
+    Args:
+        resolve: DaVinci Resolve instance
+        preset_name: Name of the quick export preset to use
+        output_path: Full path for the output file
+        timeline_name: Optional timeline name, uses current if not specified
+    """
+    if not resolve:
+        return "Error: Not connected to DaVinci Resolve"
+    
+    pm = resolve.GetProjectManager()
+    project = pm.GetCurrentProject() if pm else None
+    if not project:
+        return "Error: No project open"
+    
+    # Get timeline
+    timeline = None
+    if timeline_name:
+        count = project.GetTimelineCount()
+        for i in range(1, count + 1):
+            tl = project.GetTimelineByIndex(i)
+            if tl and tl.GetName() == timeline_name:
+                timeline = tl
+                break
+        if not timeline:
+            return f"Error: Timeline '{timeline_name}' not found"
+        project.SetCurrentTimeline(timeline)
+    else:
+        timeline = project.GetCurrentTimeline()
+        if not timeline:
+            return "Error: No timeline currently active"
+    
+    try:
+        result = project.RenderWithQuickExport(preset_name, output_path)
+        if result:
+            return f"Quick export started with preset '{preset_name}' to '{output_path}'"
+        return "Failed to start quick export"
+    except AttributeError:
+        return "Error: RenderWithQuickExport not available (requires DaVinci Resolve 18+)"
+    except Exception as e:
+        return f"Error: {e}"
+
+
+def stop_render(resolve) -> str:
+    """Stop the current rendering process.
+    
+    Args:
+        resolve: DaVinci Resolve instance
+    """
+    if not resolve:
+        return "Error: Not connected to DaVinci Resolve"
+    
+    pm = resolve.GetProjectManager()
+    project = pm.GetCurrentProject() if pm else None
+    if not project:
+        return "Error: No project open"
+    
+    try:
+        result = project.StopRendering()
+        if result:
+            return "Rendering stopped"
+        return "No rendering to stop or failed to stop"
+    except Exception as e:
+        return f"Error: {e}"
+
+
+def delete_render_job(resolve, job_id: str) -> str:
+    """Delete a specific render job from the queue.
+    
+    Args:
+        resolve: DaVinci Resolve instance
+        job_id: ID of the render job to delete
+    """
+    if not resolve:
+        return "Error: Not connected to DaVinci Resolve"
+    
+    pm = resolve.GetProjectManager()
+    project = pm.GetCurrentProject() if pm else None
+    if not project:
+        return "Error: No project open"
+    
+    try:
+        result = project.DeleteRenderJob(job_id)
+        if result:
+            return f"Deleted render job {job_id}"
+        return f"Failed to delete render job {job_id}"
+    except Exception as e:
+        return f"Error: {e}"
+
+
+def get_current_render_mode(resolve) -> Dict[str, Any]:
+    """Get the current render mode settings.
+    
+    Args:
+        resolve: DaVinci Resolve instance
+    """
+    if not resolve:
+        return {"error": "Not connected to DaVinci Resolve"}
+    
+    pm = resolve.GetProjectManager()
+    project = pm.GetCurrentProject() if pm else None
+    if not project:
+        return {"error": "No project open"}
+    
+    try:
+        mode = project.GetCurrentRenderMode()
+        return {"render_mode": mode}
+    except AttributeError:
+        return {"error": "GetCurrentRenderMode not available"}
+    except Exception as e:
+        return {"error": f"Error: {e}"}
+
+
+def set_render_settings(resolve, settings: Dict[str, Any]) -> str:
+    """Set render settings for the project.
+    
+    Common settings include:
+    - SelectPreset: Preset name to load
+    - TargetDir: Output directory
+    - CustomName: Output filename
+    - FormatWidth, FormatHeight: Resolution
+    - FrameRate: Output framerate
+    - PixelAspectRatio: Pixel aspect ratio
+    
+    Args:
+        resolve: DaVinci Resolve instance
+        settings: Dictionary of render settings
+    """
+    if not resolve:
+        return "Error: Not connected to DaVinci Resolve"
+    
+    pm = resolve.GetProjectManager()
+    project = pm.GetCurrentProject() if pm else None
+    if not project:
+        return "Error: No project open"
+    
+    if not settings:
+        return "Error: No settings provided"
+    
+    try:
+        result = project.SetRenderSettings(settings)
+        if result:
+            return f"Applied {len(settings)} render settings"
+        return "Failed to apply render settings"
+    except Exception as e:
+        return f"Error: {e}"
+
+
+def load_render_preset(resolve, preset_name: str) -> str:
+    """Load a render preset by name.
+    
+    Args:
+        resolve: DaVinci Resolve instance
+        preset_name: Name of the preset to load
+    """
+    if not resolve:
+        return "Error: Not connected to DaVinci Resolve"
+    
+    pm = resolve.GetProjectManager()
+    project = pm.GetCurrentProject() if pm else None
+    if not project:
+        return "Error: No project open"
+    
+    try:
+        result = project.LoadRenderPreset(preset_name)
+        if result:
+            return f"Loaded render preset '{preset_name}'"
+        return f"Failed to load render preset '{preset_name}'"
+    except Exception as e:
+        return f"Error: {e}"
+
+
+def save_as_render_preset(resolve, preset_name: str) -> str:
+    """Save current render settings as a new preset.
+    
+    Args:
+        resolve: DaVinci Resolve instance
+        preset_name: Name for the new preset
+    """
+    if not resolve:
+        return "Error: Not connected to DaVinci Resolve"
+    
+    pm = resolve.GetProjectManager()
+    project = pm.GetCurrentProject() if pm else None
+    if not project:
+        return "Error: No project open"
+    
+    try:
+        result = project.SaveAsNewRenderPreset(preset_name)
+        if result:
+            return f"Saved render preset as '{preset_name}'"
+        return "Failed to save render preset"
+    except Exception as e:
+        return f"Error: {e}"

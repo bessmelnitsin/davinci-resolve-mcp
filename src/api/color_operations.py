@@ -914,4 +914,291 @@ def ensure_clip_selected(resolve, timeline) -> Tuple[bool, Optional[Any], str]:
         
     except Exception as e:
         logger.error(f"Error attempting to select a clip: {str(e)}")
-        return False, None, f"Error selecting clip: {str(e)}" 
+        return False, None, f"Error selecting clip: {str(e)}"
+
+
+# ============================================================
+# Phase 4.7: ColorGroup Extensions
+# ============================================================
+
+def get_color_groups(resolve) -> Dict[str, Any]:
+    """Get all color groups in the current project.
+    
+    Args:
+        resolve: DaVinci Resolve instance
+    """
+    if resolve is None:
+        return {"error": "Not connected to DaVinci Resolve"}
+    
+    pm = resolve.GetProjectManager()
+    project = pm.GetCurrentProject() if pm else None
+    if not project:
+        return {"error": "No project open"}
+    
+    timeline = project.GetCurrentTimeline()
+    if not timeline:
+        return {"error": "No timeline currently active"}
+    
+    try:
+        color_groups = timeline.GetColorGroups()
+        if color_groups:
+            groups_info = []
+            for i, group in enumerate(color_groups):
+                groups_info.append({
+                    "index": i,
+                    "name": group.GetName() if hasattr(group, 'GetName') else f"Group {i}"
+                })
+            return {"color_groups": groups_info, "count": len(groups_info)}
+        return {"color_groups": [], "count": 0}
+    except Exception as e:
+        return {"error": f"Error getting color groups: {e}"}
+
+
+def get_color_group_clips_in_timeline(resolve, group_index: int,
+                                       timeline_name: str = None) -> Dict[str, Any]:
+    """Get clips belonging to a specific color group in the timeline.
+    
+    Args:
+        resolve: DaVinci Resolve instance
+        group_index: Index of the color group
+        timeline_name: Optional timeline name
+    """
+    if resolve is None:
+        return {"error": "Not connected to DaVinci Resolve"}
+    
+    pm = resolve.GetProjectManager()
+    project = pm.GetCurrentProject() if pm else None
+    if not project:
+        return {"error": "No project open"}
+    
+    timeline = None
+    if timeline_name:
+        count = project.GetTimelineCount()
+        for i in range(1, count + 1):
+            tl = project.GetTimelineByIndex(i)
+            if tl and tl.GetName() == timeline_name:
+                timeline = tl
+                break
+        if not timeline:
+            return {"error": f"Timeline '{timeline_name}' not found"}
+    else:
+        timeline = project.GetCurrentTimeline()
+        if not timeline:
+            return {"error": "No timeline currently active"}
+    
+    try:
+        color_groups = timeline.GetColorGroups()
+        if not color_groups or group_index >= len(color_groups):
+            return {"error": f"Color group at index {group_index} not found"}
+        
+        group = color_groups[group_index]
+        clips = group.GetClipsInTimeline(timeline)
+        
+        if clips:
+            clips_info = [{"name": clip.GetName()} for clip in clips]
+            return {
+                "group_index": group_index,
+                "timeline": timeline.GetName(),
+                "clips": clips_info,
+                "count": len(clips_info)
+            }
+        return {"group_index": group_index, "clips": [], "count": 0}
+    except Exception as e:
+        return {"error": f"Error getting clips in color group: {e}"}
+
+
+def get_pre_clip_node_graph(resolve, group_index: int) -> Dict[str, Any]:
+    """Get the pre-clip node graph for a color group.
+    
+    Args:
+        resolve: DaVinci Resolve instance
+        group_index: Index of the color group
+    """
+    if resolve is None:
+        return {"error": "Not connected to DaVinci Resolve"}
+    
+    pm = resolve.GetProjectManager()
+    project = pm.GetCurrentProject() if pm else None
+    if not project:
+        return {"error": "No project open"}
+    
+    timeline = project.GetCurrentTimeline()
+    if not timeline:
+        return {"error": "No timeline currently active"}
+    
+    try:
+        color_groups = timeline.GetColorGroups()
+        if not color_groups or group_index >= len(color_groups):
+            return {"error": f"Color group at index {group_index} not found"}
+        
+        group = color_groups[group_index]
+        graph = group.GetPreClipNodeGraph()
+        
+        if graph:
+            return {
+                "group_index": group_index,
+                "pre_clip_node_graph": {
+                    "num_nodes": graph.GetNumNodes() if hasattr(graph, 'GetNumNodes') else None
+                }
+            }
+        return {"group_index": group_index, "pre_clip_node_graph": None}
+    except Exception as e:
+        return {"error": f"Error getting pre-clip node graph: {e}"}
+
+
+def get_post_clip_node_graph(resolve, group_index: int) -> Dict[str, Any]:
+    """Get the post-clip node graph for a color group.
+    
+    Args:
+        resolve: DaVinci Resolve instance
+        group_index: Index of the color group
+    """
+    if resolve is None:
+        return {"error": "Not connected to DaVinci Resolve"}
+    
+    pm = resolve.GetProjectManager()
+    project = pm.GetCurrentProject() if pm else None
+    if not project:
+        return {"error": "No project open"}
+    
+    timeline = project.GetCurrentTimeline()
+    if not timeline:
+        return {"error": "No timeline currently active"}
+    
+    try:
+        color_groups = timeline.GetColorGroups()
+        if not color_groups or group_index >= len(color_groups):
+            return {"error": f"Color group at index {group_index} not found"}
+        
+        group = color_groups[group_index]
+        graph = group.GetPostClipNodeGraph()
+        
+        if graph:
+            return {
+                "group_index": group_index,
+                "post_clip_node_graph": {
+                    "num_nodes": graph.GetNumNodes() if hasattr(graph, 'GetNumNodes') else None
+                }
+            }
+        return {"group_index": group_index, "post_clip_node_graph": None}
+    except Exception as e:
+        return {"error": f"Error getting post-clip node graph: {e}"}
+
+
+# ============================================================
+# Phase 4.7: TimelineItem Color Group Operations  
+# ============================================================
+
+def _find_timeline_item(resolve, clip_name: str, timeline_name: str = None):
+    """Helper to find a timeline item by name."""
+    if resolve is None:
+        return None, "Not connected to DaVinci Resolve"
+    
+    pm = resolve.GetProjectManager()
+    project = pm.GetCurrentProject() if pm else None
+    if not project:
+        return None, "No project open"
+    
+    timeline = None
+    if timeline_name:
+        count = project.GetTimelineCount()
+        for i in range(1, count + 1):
+            tl = project.GetTimelineByIndex(i)
+            if tl and tl.GetName() == timeline_name:
+                timeline = tl
+                break
+        if not timeline:
+            return None, f"Timeline '{timeline_name}' not found"
+    else:
+        timeline = project.GetCurrentTimeline()
+        if not timeline:
+            return None, "No timeline currently active"
+    
+    # Search for the clip
+    for track_type in ["video", "audio"]:
+        track_count = timeline.GetTrackCount(track_type)
+        for i in range(1, track_count + 1):
+            items = timeline.GetItemListInTrack(track_type, i)
+            if items:
+                for item in items:
+                    if item.GetName() == clip_name:
+                        return item, None
+    
+    return None, f"Clip '{clip_name}' not found in timeline"
+
+
+def assign_to_color_group(resolve, clip_name: str, group_index: int,
+                          timeline_name: str = None) -> str:
+    """Assign a timeline item to a color group.
+    
+    Args:
+        resolve: DaVinci Resolve instance
+        clip_name: Name of the clip
+        group_index: Index of the color group to assign to
+        timeline_name: Optional timeline name
+    """
+    item, error = _find_timeline_item(resolve, clip_name, timeline_name)
+    if error:
+        return f"Error: {error}"
+    
+    try:
+        pm = resolve.GetProjectManager()
+        project = pm.GetCurrentProject()
+        timeline = project.GetCurrentTimeline()
+        
+        color_groups = timeline.GetColorGroups()
+        if not color_groups or group_index >= len(color_groups):
+            return f"Error: Color group at index {group_index} not found"
+        
+        group = color_groups[group_index]
+        result = item.AssignToColorGroup(group)
+        
+        if result:
+            return f"Assigned '{clip_name}' to color group {group_index}"
+        return "Failed to assign clip to color group"
+    except Exception as e:
+        return f"Error: {e}"
+
+
+def remove_from_color_group(resolve, clip_name: str,
+                            timeline_name: str = None) -> str:
+    """Remove a timeline item from its color group.
+    
+    Args:
+        resolve: DaVinci Resolve instance
+        clip_name: Name of the clip
+        timeline_name: Optional timeline name
+    """
+    item, error = _find_timeline_item(resolve, clip_name, timeline_name)
+    if error:
+        return f"Error: {error}"
+    
+    try:
+        result = item.RemoveFromColorGroup()
+        if result:
+            return f"Removed '{clip_name}' from its color group"
+        return "Failed to remove clip from color group"
+    except Exception as e:
+        return f"Error: {e}"
+
+
+def reset_all_node_colors(resolve, clip_name: str,
+                          timeline_name: str = None) -> str:
+    """Reset all node colors for a timeline item.
+    
+    Args:
+        resolve: DaVinci Resolve instance
+        clip_name: Name of the clip
+        timeline_name: Optional timeline name
+    """
+    item, error = _find_timeline_item(resolve, clip_name, timeline_name)
+    if error:
+        return f"Error: {error}"
+    
+    try:
+        result = item.ResetAllNodeColors()
+        if result:
+            return f"Reset all node colors for '{clip_name}'"
+        return "Failed to reset node colors"
+    except Exception as e:
+        return f"Error: {e}"
