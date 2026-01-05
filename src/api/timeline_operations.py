@@ -706,3 +706,1148 @@ def set_timeline_item_property(resolve, item_id: str, property_name: str, value:
         return f"Failed to set {property_name}"
     except Exception as e:
         return f"Error: {e}"
+
+
+# Timeline Export Constants
+EXPORT_TYPES = {
+    "aaf": "EXPORT_AAF",
+    "edl": "EXPORT_EDL", 
+    "xml": "EXPORT_FCP_7_XML",
+    "fcpxml_1_8": "EXPORT_FCPXML_1_8",
+    "fcpxml_1_9": "EXPORT_FCPXML_1_9",
+    "fcpxml_1_10": "EXPORT_FCPXML_1_10",
+    "drt": "EXPORT_DRT",
+    "csv": "EXPORT_TEXT_CSV",
+    "txt": "EXPORT_TEXT_TAB",
+    "otio": "EXPORT_OTIO",
+    "ale": "EXPORT_ALE",
+    "ale_cdl": "EXPORT_ALE_CDL",
+    "hdr10_a": "EXPORT_HDR_10_PROFILE_A",
+    "hdr10_b": "EXPORT_HDR_10_PROFILE_B",
+    "dolby_2_9": "EXPORT_DOLBY_VISION_VER_2_9",
+    "dolby_4_0": "EXPORT_DOLBY_VISION_VER_4_0",
+    "dolby_5_1": "EXPORT_DOLBY_VISION_VER_5_1",
+}
+
+EXPORT_SUBTYPES = {
+    "none": "EXPORT_NONE",
+    "aaf_new": "EXPORT_AAF_NEW",
+    "aaf_existing": "EXPORT_AAF_EXISTING",
+    "cdl": "EXPORT_CDL",
+    "sdl": "EXPORT_SDL",
+    "missing_clips": "EXPORT_MISSING_CLIPS",
+}
+
+
+def export_timeline(resolve, file_path: str, export_type: str = "edl", 
+                    export_subtype: str = "none", timeline_name: str = None) -> str:
+    """Export timeline to file (EDL, XML, AAF, FCPXML, etc).
+    
+    Args:
+        resolve: The DaVinci Resolve instance
+        file_path: Path where the file will be saved
+        export_type: One of 'aaf', 'edl', 'xml', 'fcpxml_1_8', 'fcpxml_1_9', 'fcpxml_1_10', 
+                     'drt', 'csv', 'txt', 'otio', 'ale', 'ale_cdl', 'hdr10_a', 'hdr10_b',
+                     'dolby_2_9', 'dolby_4_0', 'dolby_5_1'
+        export_subtype: For AAF: 'aaf_new' or 'aaf_existing'. For EDL: 'cdl', 'sdl', 'missing_clips', or 'none'
+        timeline_name: Optional timeline name, uses current if not specified
+    
+    Returns:
+        String indicating success or failure
+    """
+    if resolve is None:
+        return "Error: Not connected to DaVinci Resolve"
+    
+    project_manager = resolve.GetProjectManager()
+    if not project_manager:
+        return "Error: Failed to get Project Manager"
+    
+    current_project = project_manager.GetCurrentProject()
+    if not current_project:
+        return "Error: No project currently open"
+    
+    # Get timeline
+    timeline = None
+    if timeline_name:
+        timeline_count = current_project.GetTimelineCount()
+        for i in range(1, timeline_count + 1):
+            t = current_project.GetTimelineByIndex(i)
+            if t and t.GetName() == timeline_name:
+                timeline = t
+                break
+        if not timeline:
+            return f"Error: Timeline '{timeline_name}' not found"
+    else:
+        timeline = current_project.GetCurrentTimeline()
+        if not timeline:
+            return "Error: No timeline currently active"
+    
+    # Validate export type
+    export_type_lower = export_type.lower()
+    if export_type_lower not in EXPORT_TYPES:
+        valid_types = ", ".join(EXPORT_TYPES.keys())
+        return f"Error: Invalid export type '{export_type}'. Valid types: {valid_types}"
+    
+    # Validate export subtype
+    export_subtype_lower = export_subtype.lower()
+    if export_subtype_lower not in EXPORT_SUBTYPES:
+        valid_subtypes = ", ".join(EXPORT_SUBTYPES.keys())
+        return f"Error: Invalid export subtype '{export_subtype}'. Valid subtypes: {valid_subtypes}"
+    
+    try:
+        # Get the actual enum values from resolve
+        export_type_enum = getattr(resolve, EXPORT_TYPES[export_type_lower], None)
+        export_subtype_enum = getattr(resolve, EXPORT_SUBTYPES[export_subtype_lower], None)
+        
+        if export_type_enum is None:
+            return f"Error: Export type '{export_type}' not supported in this version of Resolve"
+        
+        if export_subtype_enum is None:
+            export_subtype_enum = getattr(resolve, "EXPORT_NONE", 0)
+        
+        result = timeline.Export(file_path, export_type_enum, export_subtype_enum)
+        
+        if result:
+            return f"Successfully exported timeline '{timeline.GetName()}' to '{file_path}'"
+        else:
+            return f"Failed to export timeline to '{file_path}'"
+    except Exception as e:
+        return f"Error exporting timeline: {e}"
+
+
+def import_timeline_from_file(resolve, file_path: str, timeline_name: str = None,
+                               import_source_clips: bool = True, 
+                               source_clips_path: str = None) -> str:
+    """Import timeline from file (AAF, EDL, XML, FCPXML, DRT, ADL, OTIO).
+    
+    Args:
+        resolve: The DaVinci Resolve instance
+        file_path: Path to the file to import
+        timeline_name: Optional name for the imported timeline
+        import_source_clips: Whether to import source clips into media pool
+        source_clips_path: Optional path to search for source clips
+    
+    Returns:
+        String indicating success or failure
+    """
+    if resolve is None:
+        return "Error: Not connected to DaVinci Resolve"
+    
+    project_manager = resolve.GetProjectManager()
+    if not project_manager:
+        return "Error: Failed to get Project Manager"
+    
+    current_project = project_manager.GetCurrentProject()
+    if not current_project:
+        return "Error: No project currently open"
+    
+    media_pool = current_project.GetMediaPool()
+    if not media_pool:
+        return "Error: Failed to get Media Pool"
+    
+    import os
+    if not os.path.exists(file_path):
+        return f"Error: File not found: {file_path}"
+    
+    try:
+        import_options = {
+            "importSourceClips": import_source_clips
+        }
+        
+        if timeline_name:
+            import_options["timelineName"] = timeline_name
+        
+        if source_clips_path:
+            import_options["sourceClipsPath"] = source_clips_path
+        
+        timeline = media_pool.ImportTimelineFromFile(file_path, import_options)
+        
+        if timeline:
+            return f"Successfully imported timeline '{timeline.GetName()}' from '{file_path}'"
+        else:
+            return f"Failed to import timeline from '{file_path}'"
+    except Exception as e:
+        return f"Error importing timeline: {e}"
+
+
+def get_timeline_markers(resolve, timeline_name: str = None) -> Dict[str, Any]:
+    """Get all markers from a timeline.
+    
+    Args:
+        resolve: The DaVinci Resolve instance
+        timeline_name: Optional timeline name, uses current if not specified
+    
+    Returns:
+        Dictionary with marker information
+    """
+    if resolve is None:
+        return {"error": "Not connected to DaVinci Resolve"}
+    
+    project_manager = resolve.GetProjectManager()
+    if not project_manager:
+        return {"error": "Failed to get Project Manager"}
+    
+    current_project = project_manager.GetCurrentProject()
+    if not current_project:
+        return {"error": "No project currently open"}
+    
+    # Get timeline
+    timeline = None
+    if timeline_name:
+        timeline_count = current_project.GetTimelineCount()
+        for i in range(1, timeline_count + 1):
+            t = current_project.GetTimelineByIndex(i)
+            if t and t.GetName() == timeline_name:
+                timeline = t
+                break
+        if not timeline:
+            return {"error": f"Timeline '{timeline_name}' not found"}
+    else:
+        timeline = current_project.GetCurrentTimeline()
+        if not timeline:
+            return {"error": "No timeline currently active"}
+    
+    try:
+        markers = timeline.GetMarkers()
+        
+        # Convert to more readable format
+        marker_list = []
+        if markers:
+            for frame_id, info in markers.items():
+                marker_list.append({
+                    "frame": frame_id,
+                    "color": info.get("color", ""),
+                    "name": info.get("name", ""),
+                    "note": info.get("note", ""),
+                    "duration": info.get("duration", 1),
+                    "custom_data": info.get("customData", "")
+                })
+        
+        return {
+            "timeline": timeline.GetName(),
+            "count": len(marker_list),
+            "markers": marker_list
+        }
+    except Exception as e:
+        return {"error": f"Error getting markers: {e}"}
+
+
+def delete_timeline_markers(resolve, color: str = "All", timeline_name: str = None) -> str:
+    """Delete markers from a timeline.
+    
+    Args:
+        resolve: The DaVinci Resolve instance
+        color: Marker color to delete, or 'All' to delete all markers
+        timeline_name: Optional timeline name, uses current if not specified
+    
+    Returns:
+        String indicating success or failure
+    """
+    if resolve is None:
+        return "Error: Not connected to DaVinci Resolve"
+    
+    project_manager = resolve.GetProjectManager()
+    if not project_manager:
+        return "Error: Failed to get Project Manager"
+    
+    current_project = project_manager.GetCurrentProject()
+    if not current_project:
+        return "Error: No project currently open"
+    
+    # Get timeline
+    timeline = None
+    if timeline_name:
+        timeline_count = current_project.GetTimelineCount()
+        for i in range(1, timeline_count + 1):
+            t = current_project.GetTimelineByIndex(i)
+            if t and t.GetName() == timeline_name:
+                timeline = t
+                break
+        if not timeline:
+            return f"Error: Timeline '{timeline_name}' not found"
+    else:
+        timeline = current_project.GetCurrentTimeline()
+        if not timeline:
+            return "Error: No timeline currently active"
+    
+    try:
+        result = timeline.DeleteMarkersByColor(color)
+        if result:
+            return f"Deleted {color} markers from timeline '{timeline.GetName()}'"
+        else:
+            return f"Failed to delete markers or no {color} markers found"
+    except Exception as e:
+        return f"Error deleting markers: {e}"
+
+
+def duplicate_timeline(resolve, new_name: str = None, timeline_name: str = None) -> str:
+    """Duplicate a timeline.
+    
+    Args:
+        resolve: The DaVinci Resolve instance
+        new_name: Optional name for the duplicated timeline
+        timeline_name: Optional source timeline name, uses current if not specified
+    
+    Returns:
+        String indicating success or failure
+    """
+    if resolve is None:
+        return "Error: Not connected to DaVinci Resolve"
+    
+    project_manager = resolve.GetProjectManager()
+    if not project_manager:
+        return "Error: Failed to get Project Manager"
+    
+    current_project = project_manager.GetCurrentProject()
+    if not current_project:
+        return "Error: No project currently open"
+    
+    # Get source timeline
+    timeline = None
+    if timeline_name:
+        timeline_count = current_project.GetTimelineCount()
+        for i in range(1, timeline_count + 1):
+            t = current_project.GetTimelineByIndex(i)
+            if t and t.GetName() == timeline_name:
+                timeline = t
+                break
+        if not timeline:
+            return f"Error: Timeline '{timeline_name}' not found"
+    else:
+        timeline = current_project.GetCurrentTimeline()
+        if not timeline:
+            return "Error: No timeline currently active"
+    
+    try:
+        duplicated = timeline.DuplicateTimeline(new_name) if new_name else timeline.DuplicateTimeline()
+        if duplicated:
+            return f"Successfully duplicated timeline to '{duplicated.GetName()}'"
+        else:
+            return "Failed to duplicate timeline"
+    except Exception as e:
+        return f"Error duplicating timeline: {e}"
+
+
+# ============================================================
+# Phase 4.1-4.3: Timeline Track Management
+# ============================================================
+
+def _get_timeline(resolve, timeline_name: str = None):
+    """Helper to get timeline by name or current."""
+    if not resolve:
+        return None, "Not connected to DaVinci Resolve"
+    
+    pm = resolve.GetProjectManager()
+    if not pm:
+        return None, "Failed to get Project Manager"
+    
+    proj = pm.GetCurrentProject()
+    if not proj:
+        return None, "No project currently open"
+    
+    if timeline_name:
+        count = proj.GetTimelineCount()
+        for i in range(1, count + 1):
+            t = proj.GetTimelineByIndex(i)
+            if t and t.GetName() == timeline_name:
+                return t, None
+        return None, f"Timeline '{timeline_name}' not found"
+    else:
+        t = proj.GetCurrentTimeline()
+        if not t:
+            return None, "No timeline currently active"
+        return t, None
+
+
+def add_track(resolve, track_type: str, sub_track_type: str = None, 
+              timeline_name: str = None) -> str:
+    """Add a new track to the timeline.
+    
+    Args:
+        resolve: DaVinci Resolve instance
+        track_type: 'video', 'audio', or 'subtitle'
+        sub_track_type: For audio: 'mono', 'stereo', '5.1', '7.1', 'adaptive'
+        timeline_name: Optional timeline name
+    """
+    timeline, error = _get_timeline(resolve, timeline_name)
+    if error:
+        return f"Error: {error}"
+    
+    try:
+        if sub_track_type:
+            result = timeline.AddTrack(track_type, sub_track_type)
+        else:
+            result = timeline.AddTrack(track_type)
+        
+        if result:
+            return f"Added {track_type} track to '{timeline.GetName()}'"
+        return f"Failed to add {track_type} track"
+    except Exception as e:
+        return f"Error adding track: {e}"
+
+
+def delete_track(resolve, track_type: str, track_index: int,
+                 timeline_name: str = None) -> str:
+    """Delete a track from the timeline.
+    
+    Args:
+        resolve: DaVinci Resolve instance
+        track_type: 'video', 'audio', or 'subtitle'
+        track_index: 1-based track index
+        timeline_name: Optional timeline name
+    """
+    timeline, error = _get_timeline(resolve, timeline_name)
+    if error:
+        return f"Error: {error}"
+    
+    try:
+        result = timeline.DeleteTrack(track_type, track_index)
+        if result:
+            return f"Deleted {track_type} track {track_index}"
+        return f"Failed to delete track (it may contain clips or be the only track)"
+    except Exception as e:
+        return f"Error deleting track: {e}"
+
+
+def get_track_name(resolve, track_type: str, track_index: int,
+                   timeline_name: str = None) -> Dict[str, Any]:
+    """Get the name of a track.
+    
+    Args:
+        resolve: DaVinci Resolve instance
+        track_type: 'video', 'audio', or 'subtitle'
+        track_index: 1-based track index
+        timeline_name: Optional timeline name
+    """
+    timeline, error = _get_timeline(resolve, timeline_name)
+    if error:
+        return {"error": error}
+    
+    try:
+        name = timeline.GetTrackName(track_type, track_index)
+        return {
+            "timeline": timeline.GetName(),
+            "track_type": track_type,
+            "track_index": track_index,
+            "name": name if name else f"{track_type[0].upper()}{track_index}"
+        }
+    except Exception as e:
+        return {"error": f"Error getting track name: {e}"}
+
+
+def set_track_name(resolve, track_type: str, track_index: int, name: str,
+                   timeline_name: str = None) -> str:
+    """Set the name of a track.
+    
+    Args:
+        resolve: DaVinci Resolve instance
+        track_type: 'video', 'audio', or 'subtitle'
+        track_index: 1-based track index
+        name: New name for the track
+        timeline_name: Optional timeline name
+    """
+    timeline, error = _get_timeline(resolve, timeline_name)
+    if error:
+        return f"Error: {error}"
+    
+    try:
+        result = timeline.SetTrackName(track_type, track_index, name)
+        if result:
+            return f"Set {track_type} track {track_index} name to '{name}'"
+        return "Failed to set track name"
+    except Exception as e:
+        return f"Error setting track name: {e}"
+
+
+def set_track_enabled(resolve, track_type: str, track_index: int, enabled: bool,
+                      timeline_name: str = None) -> str:
+    """Enable or disable a track.
+    
+    Args:
+        resolve: DaVinci Resolve instance
+        track_type: 'video', 'audio', or 'subtitle'
+        track_index: 1-based track index
+        enabled: True to enable, False to disable
+        timeline_name: Optional timeline name
+    """
+    timeline, error = _get_timeline(resolve, timeline_name)
+    if error:
+        return f"Error: {error}"
+    
+    try:
+        result = timeline.SetTrackEnable(track_type, track_index, enabled)
+        state = "enabled" if enabled else "disabled"
+        if result:
+            return f"{track_type.capitalize()} track {track_index} {state}"
+        return f"Failed to {state[:-1]} track"
+    except Exception as e:
+        return f"Error: {e}"
+
+
+def set_track_locked(resolve, track_type: str, track_index: int, locked: bool,
+                     timeline_name: str = None) -> str:
+    """Lock or unlock a track.
+    
+    Args:
+        resolve: DaVinci Resolve instance
+        track_type: 'video', 'audio', or 'subtitle'
+        track_index: 1-based track index
+        locked: True to lock, False to unlock
+        timeline_name: Optional timeline name
+    """
+    timeline, error = _get_timeline(resolve, timeline_name)
+    if error:
+        return f"Error: {error}"
+    
+    try:
+        result = timeline.SetTrackLock(track_type, track_index, locked)
+        state = "locked" if locked else "unlocked"
+        if result:
+            return f"{track_type.capitalize()} track {track_index} {state}"
+        return f"Failed to {state[:-2]} track"
+    except Exception as e:
+        return f"Error: {e}"
+
+
+def get_track_status(resolve, track_type: str, track_index: int,
+                     timeline_name: str = None) -> Dict[str, Any]:
+    """Get track enabled/locked status.
+    
+    Args:
+        resolve: DaVinci Resolve instance
+        track_type: 'video', 'audio', or 'subtitle'
+        track_index: 1-based track index
+        timeline_name: Optional timeline name
+    """
+    timeline, error = _get_timeline(resolve, timeline_name)
+    if error:
+        return {"error": error}
+    
+    try:
+        return {
+            "timeline": timeline.GetName(),
+            "track_type": track_type,
+            "track_index": track_index,
+            "enabled": timeline.GetIsTrackEnabled(track_type, track_index),
+            "locked": timeline.GetIsTrackLocked(track_type, track_index)
+        }
+    except Exception as e:
+        return {"error": f"Error: {e}"}
+
+
+# --- Timecode Operations ---
+
+def get_current_timecode(resolve, timeline_name: str = None) -> Dict[str, Any]:
+    """Get current playhead timecode."""
+    timeline, error = _get_timeline(resolve, timeline_name)
+    if error:
+        return {"error": error}
+    
+    try:
+        return {
+            "timeline": timeline.GetName(),
+            "current_timecode": timeline.GetCurrentTimecode(),
+            "start_timecode": timeline.GetStartTimecode()
+        }
+    except Exception as e:
+        return {"error": f"Error: {e}"}
+
+
+def set_current_timecode(resolve, timecode: str, timeline_name: str = None) -> str:
+    """Set playhead to timecode.
+    
+    Args:
+        resolve: DaVinci Resolve instance
+        timecode: Timecode string (e.g., '01:00:00:00')
+        timeline_name: Optional timeline name
+    """
+    timeline, error = _get_timeline(resolve, timeline_name)
+    if error:
+        return f"Error: {error}"
+    
+    try:
+        result = timeline.SetCurrentTimecode(timecode)
+        if result:
+            return f"Set playhead to {timecode}"
+        return "Failed to set timecode"
+    except Exception as e:
+        return f"Error: {e}"
+
+
+# --- Insert Generators and Titles ---
+
+def insert_generator(resolve, generator_name: str, duration: int = None,
+                     timeline_name: str = None) -> str:
+    """Insert a generator into the timeline.
+    
+    Args:
+        resolve: DaVinci Resolve instance
+        generator_name: Name of the generator (e.g., 'Solid Color', '10 Point Grid')
+        duration: Optional duration in frames
+        timeline_name: Optional timeline name
+    """
+    timeline, error = _get_timeline(resolve, timeline_name)
+    if error:
+        return f"Error: {error}"
+    
+    try:
+        if duration:
+            result = timeline.InsertGeneratorIntoTimeline(generator_name, {"duration": duration})
+        else:
+            result = timeline.InsertGeneratorIntoTimeline(generator_name)
+        
+        if result:
+            return f"Inserted generator '{generator_name}'"
+        return f"Failed to insert generator '{generator_name}'"
+    except Exception as e:
+        return f"Error: {e}"
+
+
+def insert_title(resolve, title_name: str, duration: int = None,
+                 timeline_name: str = None) -> str:
+    """Insert a title into the timeline.
+    
+    Args:
+        resolve: DaVinci Resolve instance
+        title_name: Name of the title template (e.g., 'Text+', 'Scroll')
+        duration: Optional duration in frames
+        timeline_name: Optional timeline name
+    """
+    timeline, error = _get_timeline(resolve, timeline_name)
+    if error:
+        return f"Error: {error}"
+    
+    try:
+        if duration:
+            result = timeline.InsertTitleIntoTimeline(title_name, {"duration": duration})
+        else:
+            result = timeline.InsertTitleIntoTimeline(title_name)
+        
+        if result:
+            return f"Inserted title '{title_name}'"
+        return f"Failed to insert title '{title_name}'"
+    except Exception as e:
+        return f"Error: {e}"
+
+
+def insert_fusion_title(resolve, title_name: str, duration: int = None,
+                        timeline_name: str = None) -> str:
+    """Insert a Fusion title into the timeline.
+    
+    Args:
+        resolve: DaVinci Resolve instance
+        title_name: Name of the Fusion title template
+        duration: Optional duration in frames
+        timeline_name: Optional timeline name
+    """
+    timeline, error = _get_timeline(resolve, timeline_name)
+    if error:
+        return f"Error: {error}"
+    
+    try:
+        if duration:
+            result = timeline.InsertFusionTitleIntoTimeline(title_name, {"duration": duration})
+        else:
+            result = timeline.InsertFusionTitleIntoTimeline(title_name)
+        
+        if result:
+            return f"Inserted Fusion title '{title_name}'"
+        return f"Failed to insert Fusion title"
+    except Exception as e:
+        return f"Error: {e}"
+
+
+# --- Special Timeline Operations ---
+
+def create_compound_clip(resolve, clip_info: Dict[str, Any] = None,
+                         timeline_name: str = None) -> str:
+    """Create a compound clip from selected items.
+    
+    Args:
+        resolve: DaVinci Resolve instance
+        clip_info: Optional dict with 'startTimecode' and compound clip info
+        timeline_name: Optional timeline name
+    """
+    timeline, error = _get_timeline(resolve, timeline_name)
+    if error:
+        return f"Error: {error}"
+    
+    try:
+        result = timeline.CreateCompoundClip(clip_info) if clip_info else timeline.CreateCompoundClip({})
+        if result:
+            return "Created compound clip"
+        return "Failed to create compound clip (select clips first)"
+    except Exception as e:
+        return f"Error: {e}"
+
+
+def create_fusion_clip(resolve, timeline_name: str = None) -> str:
+    """Create a Fusion clip from selected items."""
+    timeline, error = _get_timeline(resolve, timeline_name)
+    if error:
+        return f"Error: {error}"
+    
+    try:
+        result = timeline.CreateFusionClip([])
+        if result:
+            return "Created Fusion clip"
+        return "Failed to create Fusion clip (select clips first)"
+    except Exception as e:
+        return f"Error: {e}"
+
+
+def detect_scene_cuts(resolve, timeline_name: str = None) -> str:
+    """Detect scene cuts in the timeline."""
+    timeline, error = _get_timeline(resolve, timeline_name)
+    if error:
+        return f"Error: {error}"
+    
+    try:
+        result = timeline.DetectSceneCuts()
+        if result:
+            return "Scene cut detection started"
+        return "Failed to start scene cut detection"
+    except Exception as e:
+        return f"Error: {e}"
+
+
+def rename_timeline(resolve, new_name: str, timeline_name: str = None) -> str:
+    """Rename a timeline.
+    
+    Args:
+        resolve: DaVinci Resolve instance
+        new_name: New name for the timeline
+        timeline_name: Optional current name, uses current timeline if not specified
+    """
+    timeline, error = _get_timeline(resolve, timeline_name)
+    if error:
+        return f"Error: {error}"
+    
+    old_name = timeline.GetName()
+    
+    try:
+        if timeline.SetName(new_name):
+            return f"Renamed timeline from '{old_name}' to '{new_name}'"
+        return "Failed to rename timeline"
+    except Exception as e:
+        return f"Error: {e}"
+
+
+def get_timeline_unique_id(resolve, timeline_name: str = None) -> Dict[str, Any]:
+    """Get the unique ID of a timeline."""
+    timeline, error = _get_timeline(resolve, timeline_name)
+    if error:
+        return {"error": error}
+    
+    try:
+        return {
+            "timeline": timeline.GetName(),
+            "unique_id": timeline.GetUniqueId()
+        }
+    except Exception as e:
+        return {"error": f"Error: {e}"}
+
+
+# ============================================================
+# Phase 5: TimelineItem Extended Operations
+# ============================================================
+
+def _find_timeline_item(resolve, clip_name: str, track_type: str = "video", 
+                        track_index: int = None, timeline_name: str = None):
+    """Helper to find a timeline item by name."""
+    timeline, error = _get_timeline(resolve, timeline_name)
+    if error:
+        return None, error
+    
+    # Search in all tracks if track_index not specified
+    if track_type == "video":
+        track_count = timeline.GetTrackCount("video")
+        tracks_to_search = range(1, track_count + 1) if track_index is None else [track_index]
+        
+        for idx in tracks_to_search:
+            items = timeline.GetItemListInTrack("video", idx)
+            if items:
+                for item in items:
+                    if item.GetName() == clip_name:
+                        return item, None
+    
+    elif track_type == "audio":
+        track_count = timeline.GetTrackCount("audio")
+        tracks_to_search = range(1, track_count + 1) if track_index is None else [track_index]
+        
+        for idx in tracks_to_search:
+            items = timeline.GetItemListInTrack("audio", idx)
+            if items:
+                for item in items:
+                    if item.GetName() == clip_name:
+                        return item, None
+    
+    return None, f"Clip '{clip_name}' not found in {track_type} tracks"
+
+
+def get_timeline_item_property(resolve, clip_name: str, property_key: str = None,
+                               timeline_name: str = None) -> Dict[str, Any]:
+    """Get TimelineItem property or all properties.
+    
+    Args:
+        resolve: DaVinci Resolve instance
+        clip_name: Name of the clip in timeline
+        property_key: Optional specific property key (returns all if not specified)
+        timeline_name: Optional timeline name
+    """
+    item, error = _find_timeline_item(resolve, clip_name, timeline_name=timeline_name)
+    if error:
+        return {"error": error}
+    
+    try:
+        if property_key:
+            value = item.GetProperty(property_key)
+            return {"clip_name": clip_name, property_key: value}
+        else:
+            properties = item.GetProperty()
+            return {"clip_name": clip_name, "properties": properties if properties else {}}
+    except Exception as e:
+        return {"error": f"Error: {e}"}
+
+
+def set_timeline_item_property(resolve, clip_name: str, property_key: str, 
+                               property_value, timeline_name: str = None) -> str:
+    """Set a TimelineItem property.
+    
+    Args:
+        resolve: DaVinci Resolve instance
+        clip_name: Name of the clip in timeline
+        property_key: Property key (e.g., 'Pan', 'Tilt', 'ZoomX', 'ZoomY', 'CropLeft', etc.)
+        property_value: Value to set
+        timeline_name: Optional timeline name
+    """
+    item, error = _find_timeline_item(resolve, clip_name, timeline_name=timeline_name)
+    if error:
+        return f"Error: {error}"
+    
+    try:
+        if item.SetProperty(property_key, property_value):
+            return f"Set '{property_key}' to '{property_value}' for '{clip_name}'"
+        return f"Failed to set '{property_key}' for '{clip_name}'"
+    except Exception as e:
+        return f"Error: {e}"
+
+
+def get_timeline_item_info(resolve, clip_name: str, timeline_name: str = None) -> Dict[str, Any]:
+    """Get detailed info about a timeline item."""
+    item, error = _find_timeline_item(resolve, clip_name, timeline_name=timeline_name)
+    if error:
+        return {"error": error}
+    
+    try:
+        track_info = item.GetTrackTypeAndIndex()
+        return {
+            "name": item.GetName(),
+            "duration": item.GetDuration(),
+            "start": item.GetStart(),
+            "end": item.GetEnd(),
+            "source_start": item.GetSourceStartFrame(),
+            "source_end": item.GetSourceEndFrame(),
+            "track_type": track_info[0] if track_info else None,
+            "track_index": track_info[1] if track_info else None,
+            "enabled": item.GetClipEnabled(),
+            "color": item.GetClipColor(),
+            "unique_id": item.GetUniqueId()
+        }
+    except Exception as e:
+        return {"error": f"Error: {e}"}
+
+
+def set_timeline_item_enabled(resolve, clip_name: str, enabled: bool,
+                              timeline_name: str = None) -> str:
+    """Enable or disable a timeline item."""
+    item, error = _find_timeline_item(resolve, clip_name, timeline_name=timeline_name)
+    if error:
+        return f"Error: {error}"
+    
+    try:
+        result = item.SetClipEnabled(enabled)
+        state = "enabled" if enabled else "disabled"
+        if result:
+            return f"Clip '{clip_name}' {state}"
+        return f"Failed to {state[:-1]} clip"
+    except Exception as e:
+        return f"Error: {e}"
+
+
+# --- Timeline Item Color Versions ---
+
+def add_color_version(resolve, clip_name: str, version_name: str, 
+                      version_type: int = 0, timeline_name: str = None) -> str:
+    """Add a new color version to a timeline item.
+    
+    Args:
+        resolve: DaVinci Resolve instance
+        clip_name: Name of the clip
+        version_name: Name for the new version
+        version_type: 0 = local, 1 = remote
+    """
+    item, error = _find_timeline_item(resolve, clip_name, timeline_name=timeline_name)
+    if error:
+        return f"Error: {error}"
+    
+    try:
+        if item.AddVersion(version_name, version_type):
+            vtype = "local" if version_type == 0 else "remote"
+            return f"Added {vtype} version '{version_name}' to '{clip_name}'"
+        return "Failed to add version"
+    except Exception as e:
+        return f"Error: {e}"
+
+
+def get_color_versions(resolve, clip_name: str, version_type: int = 0,
+                       timeline_name: str = None) -> Dict[str, Any]:
+    """Get list of color versions for a timeline item.
+    
+    Args:
+        resolve: DaVinci Resolve instance
+        clip_name: Name of the clip
+        version_type: 0 = local, 1 = remote
+    """
+    item, error = _find_timeline_item(resolve, clip_name, timeline_name=timeline_name)
+    if error:
+        return {"error": error}
+    
+    try:
+        versions = item.GetVersionNameList(version_type)
+        current = item.GetCurrentVersion()
+        
+        return {
+            "clip_name": clip_name,
+            "version_type": "local" if version_type == 0 else "remote",
+            "versions": versions if versions else [],
+            "current_version": current
+        }
+    except Exception as e:
+        return {"error": f"Error: {e}"}
+
+
+def load_color_version(resolve, clip_name: str, version_name: str,
+                       version_type: int = 0, timeline_name: str = None) -> str:
+    """Load a color version by name."""
+    item, error = _find_timeline_item(resolve, clip_name, timeline_name=timeline_name)
+    if error:
+        return f"Error: {error}"
+    
+    try:
+        if item.LoadVersionByName(version_name, version_type):
+            return f"Loaded version '{version_name}'"
+        return f"Failed to load version '{version_name}'"
+    except Exception as e:
+        return f"Error: {e}"
+
+
+# --- Timeline Item Effects/Processing ---
+
+def stabilize_clip(resolve, clip_name: str, timeline_name: str = None) -> str:
+    """Stabilize a timeline clip."""
+    item, error = _find_timeline_item(resolve, clip_name, timeline_name=timeline_name)
+    if error:
+        return f"Error: {error}"
+    
+    try:
+        if item.Stabilize():
+            return f"Stabilization started for '{clip_name}'"
+        return "Failed to start stabilization"
+    except Exception as e:
+        return f"Error: {e}"
+
+
+def smart_reframe_clip(resolve, clip_name: str, timeline_name: str = None) -> str:
+    """Apply Smart Reframe to a timeline clip."""
+    item, error = _find_timeline_item(resolve, clip_name, timeline_name=timeline_name)
+    if error:
+        return f"Error: {error}"
+    
+    try:
+        if item.SmartReframe():
+            return f"Smart Reframe applied to '{clip_name}'"
+        return "Failed to apply Smart Reframe"
+    except Exception as e:
+        return f"Error: {e}"
+
+
+def create_magic_mask(resolve, clip_name: str, mode: str = "F",
+                      timeline_name: str = None) -> str:
+    """Create Magic Mask on a clip.
+    
+    Args:
+        resolve: DaVinci Resolve instance
+        clip_name: Name of the clip
+        mode: 'F' (forward), 'B' (backward), or 'BI' (bidirectional)
+    """
+    item, error = _find_timeline_item(resolve, clip_name, timeline_name=timeline_name)
+    if error:
+        return f"Error: {error}"
+    
+    try:
+        if item.CreateMagicMask(mode):
+            return f"Magic Mask created on '{clip_name}' (mode: {mode})"
+        return "Failed to create Magic Mask"
+    except Exception as e:
+        return f"Error: {e}"
+
+
+# --- Timeline Item Markers/Flags/Color ---
+
+def add_timeline_item_marker(resolve, clip_name: str, frame: int, color: str = "Blue",
+                             name: str = "", note: str = "", duration: int = 1,
+                             timeline_name: str = None) -> str:
+    """Add a marker to a timeline item."""
+    item, error = _find_timeline_item(resolve, clip_name, timeline_name=timeline_name)
+    if error:
+        return f"Error: {error}"
+    
+    try:
+        if item.AddMarker(frame, color, name, note, duration, ""):
+            return f"Added {color} marker at frame {frame} on '{clip_name}'"
+        return "Failed to add marker"
+    except Exception as e:
+        return f"Error: {e}"
+
+
+def get_timeline_item_markers(resolve, clip_name: str, 
+                              timeline_name: str = None) -> Dict[str, Any]:
+    """Get markers from a timeline item."""
+    item, error = _find_timeline_item(resolve, clip_name, timeline_name=timeline_name)
+    if error:
+        return {"error": error}
+    
+    try:
+        markers = item.GetMarkers()
+        marker_list = []
+        if markers:
+            for frame_id, info in markers.items():
+                marker_list.append({
+                    "frame": frame_id,
+                    "color": info.get("color", ""),
+                    "name": info.get("name", ""),
+                    "note": info.get("note", ""),
+                    "duration": info.get("duration", 1)
+                })
+        return {"clip_name": clip_name, "count": len(marker_list), "markers": marker_list}
+    except Exception as e:
+        return {"error": f"Error: {e}"}
+
+
+def set_timeline_item_color(resolve, clip_name: str, color: str,
+                            timeline_name: str = None) -> str:
+    """Set the color label of a timeline item."""
+    item, error = _find_timeline_item(resolve, clip_name, timeline_name=timeline_name)
+    if error:
+        return f"Error: {error}"
+    
+    try:
+        if item.SetClipColor(color):
+            return f"Set color to '{color}' for '{clip_name}'"
+        return "Failed to set color"
+    except Exception as e:
+        return f"Error: {e}"
+
+
+def add_timeline_item_flag(resolve, clip_name: str, color: str,
+                           timeline_name: str = None) -> str:
+    """Add a flag to a timeline item."""
+    item, error = _find_timeline_item(resolve, clip_name, timeline_name=timeline_name)
+    if error:
+        return f"Error: {error}"
+    
+    try:
+        if item.AddFlag(color):
+            return f"Added {color} flag to '{clip_name}'"
+        return "Failed to add flag"
+    except Exception as e:
+        return f"Error: {e}"
+
+
+# --- Timeline Item Cache Control ---
+
+def set_color_output_cache(resolve, clip_name: str, enabled: bool,
+                           timeline_name: str = None) -> str:
+    """Enable/disable color output cache for a clip."""
+    item, error = _find_timeline_item(resolve, clip_name, timeline_name=timeline_name)
+    if error:
+        return f"Error: {error}"
+    
+    try:
+        cache_value = 1 if enabled else 0
+        if item.SetColorOutputCache(cache_value):
+            state = "enabled" if enabled else "disabled"
+            return f"Color output cache {state} for '{clip_name}'"
+        return "Failed to set cache"
+    except Exception as e:
+        return f"Error: {e}"
+
+
+def set_fusion_output_cache(resolve, clip_name: str, cache_mode: int,
+                            timeline_name: str = None) -> str:
+    """Set Fusion output cache mode for a clip.
+    
+    Args:
+        resolve: DaVinci Resolve instance
+        clip_name: Name of the clip
+        cache_mode: -1 = auto, 0 = disabled, 1 = enabled
+    """
+    item, error = _find_timeline_item(resolve, clip_name, timeline_name=timeline_name)
+    if error:
+        return f"Error: {error}"
+    
+    try:
+        if item.SetFusionOutputCache(cache_mode):
+            modes = {-1: "auto", 0: "disabled", 1: "enabled"}
+            return f"Fusion cache set to '{modes.get(cache_mode, cache_mode)}' for '{clip_name}'"
+        return "Failed to set Fusion cache"
+    except Exception as e:
+        return f"Error: {e}"
+
+
+def copy_grades(resolve, source_clip: str, target_clips: List[str],
+                timeline_name: str = None) -> str:
+    """Copy grades from source clip to target clips.
+    
+    Args:
+        resolve: DaVinci Resolve instance
+        source_clip: Source clip name
+        target_clips: List of target clip names
+    """
+    source_item, error = _find_timeline_item(resolve, source_clip, timeline_name=timeline_name)
+    if error:
+        return f"Error: {error}"
+    
+    target_items = []
+    for name in target_clips:
+        item, err = _find_timeline_item(resolve, name, timeline_name=timeline_name)
+        if item:
+            target_items.append(item)
+    
+    if not target_items:
+        return "Error: No valid target clips found"
+    
+    try:
+        if source_item.CopyGrades(target_items):
+            return f"Copied grades from '{source_clip}' to {len(target_items)} clips"
+        return "Failed to copy grades"
+    except Exception as e:
+        return f"Error: {e}"
+
+
+def get_linked_items(resolve, clip_name: str, timeline_name: str = None) -> Dict[str, Any]:
+    """Get linked items for a timeline item."""
+    item, error = _find_timeline_item(resolve, clip_name, timeline_name=timeline_name)
+    if error:
+        return {"error": error}
+    
+    try:
+        linked = item.GetLinkedItems()
+        linked_names = [i.GetName() for i in linked] if linked else []
+        return {"clip_name": clip_name, "linked_items": linked_names}
+    except Exception as e:
+        return {"error": f"Error: {e}"}
+
+
+

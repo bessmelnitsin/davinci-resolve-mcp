@@ -19,6 +19,12 @@ import src.tools.timeline
 import src.tools.project
 import src.tools.color
 import src.tools.delivery
+import src.tools.navigation
+import src.tools.fairlight
+
+# Phase 1: New modules
+import src.tools.media_storage
+import src.tools.fusion
 
 # Setup logging
 logging.basicConfig(

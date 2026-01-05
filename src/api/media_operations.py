@@ -1097,4 +1097,433 @@ def create_timeline_from_clips(resolve, name: str, clip_names: list) -> str:
                     return f'Error: Timeline "{name}" already exists'
             return f'Failed to create timeline "{name}"'
     except Exception as e:
-        return f'Error creating timeline: {str(e)}' 
+        return f'Error creating timeline: {str(e)}'
+
+
+# ============================================================
+# MediaPoolItem Extended Operations (Phase 3)
+# ============================================================
+
+def find_clip_by_name(resolve, clip_name: str):
+    """Helper function to find a clip by name in the media pool."""
+    if not resolve:
+        return None, "Not connected to DaVinci Resolve"
+    
+    project_manager = resolve.GetProjectManager()
+    if not project_manager:
+        return None, "Failed to get Project Manager"
+    
+    current_project = project_manager.GetCurrentProject()
+    if not current_project:
+        return None, "No project currently open"
+    
+    media_pool = current_project.GetMediaPool()
+    if not media_pool:
+        return None, "Failed to get Media Pool"
+    
+    # Search in all folders
+    all_clips = get_all_media_pool_clips(media_pool)
+    
+    for clip in all_clips:
+        if clip and clip.GetName() == clip_name:
+            return clip, None
+    
+    return None, f"Clip '{clip_name}' not found in Media Pool"
+
+
+# --- Clip Metadata ---
+
+def get_clip_metadata(resolve, clip_name: str) -> Dict[str, Any]:
+    """Get all metadata for a clip."""
+    clip, error = find_clip_by_name(resolve, clip_name)
+    if error:
+        return {"error": error}
+    
+    try:
+        metadata = clip.GetMetadata()
+        return {
+            "clip_name": clip_name,
+            "metadata": metadata if metadata else {}
+        }
+    except Exception as e:
+        return {"error": f"Error getting metadata: {e}"}
+
+
+def set_clip_metadata(resolve, clip_name: str, metadata: Dict[str, str]) -> str:
+    """Set metadata for a clip.
+    
+    Args:
+        resolve: DaVinci Resolve instance
+        clip_name: Name of the clip
+        metadata: Dictionary of metadata key-value pairs
+    """
+    clip, error = find_clip_by_name(resolve, clip_name)
+    if error:
+        return f"Error: {error}"
+    
+    try:
+        success_count = 0
+        failed_keys = []
+        
+        for key, value in metadata.items():
+            if clip.SetMetadata(key, value):
+                success_count += 1
+            else:
+                failed_keys.append(key)
+        
+        if failed_keys:
+            return f"Set {success_count} metadata fields. Failed: {', '.join(failed_keys)}"
+        return f"Successfully set {success_count} metadata fields for '{clip_name}'"
+    except Exception as e:
+        return f"Error setting metadata: {e}"
+
+
+def get_clip_property(resolve, clip_name: str, property_name: str = None) -> Dict[str, Any]:
+    """Get clip property or all properties.
+    
+    Args:
+        resolve: DaVinci Resolve instance
+        clip_name: Name of the clip
+        property_name: Optional specific property name, returns all if not specified
+    """
+    clip, error = find_clip_by_name(resolve, clip_name)
+    if error:
+        return {"error": error}
+    
+    try:
+        if property_name:
+            value = clip.GetClipProperty(property_name)
+            return {"clip_name": clip_name, property_name: value}
+        else:
+            properties = clip.GetClipProperty()
+            return {"clip_name": clip_name, "properties": properties if properties else {}}
+    except Exception as e:
+        return {"error": f"Error getting property: {e}"}
+
+
+def set_clip_property(resolve, clip_name: str, property_name: str, value: str) -> str:
+    """Set a clip property."""
+    clip, error = find_clip_by_name(resolve, clip_name)
+    if error:
+        return f"Error: {error}"
+    
+    try:
+        if clip.SetClipProperty(property_name, value):
+            return f"Set '{property_name}' to '{value}' for '{clip_name}'"
+        return f"Failed to set '{property_name}' for '{clip_name}'"
+    except Exception as e:
+        return f"Error setting property: {e}"
+
+
+# --- Clip Markers ---
+
+def add_clip_marker(resolve, clip_name: str, frame: int, color: str = "Blue", 
+                    name: str = "", note: str = "", duration: int = 1,
+                    custom_data: str = "") -> str:
+    """Add a marker to a media pool clip.
+    
+    Args:
+        resolve: DaVinci Resolve instance
+        clip_name: Name of the clip
+        frame: Frame number for the marker
+        color: Marker color (Blue, Cyan, Green, Yellow, Red, Pink, Purple, etc)
+        name: Marker name/title
+        note: Marker note text
+        duration: Duration in frames
+        custom_data: Custom data string
+    """
+    clip, error = find_clip_by_name(resolve, clip_name)
+    if error:
+        return f"Error: {error}"
+    
+    try:
+        result = clip.AddMarker(frame, color, name, note, duration, custom_data)
+        if result:
+            return f"Added {color} marker at frame {frame} on '{clip_name}'"
+        return f"Failed to add marker at frame {frame}"
+    except Exception as e:
+        return f"Error adding marker: {e}"
+
+
+def get_clip_markers(resolve, clip_name: str) -> Dict[str, Any]:
+    """Get all markers from a media pool clip."""
+    clip, error = find_clip_by_name(resolve, clip_name)
+    if error:
+        return {"error": error}
+    
+    try:
+        markers = clip.GetMarkers()
+        marker_list = []
+        if markers:
+            for frame_id, info in markers.items():
+                marker_list.append({
+                    "frame": frame_id,
+                    "color": info.get("color", ""),
+                    "name": info.get("name", ""),
+                    "note": info.get("note", ""),
+                    "duration": info.get("duration", 1),
+                    "custom_data": info.get("customData", "")
+                })
+        
+        return {
+            "clip_name": clip_name,
+            "count": len(marker_list),
+            "markers": marker_list
+        }
+    except Exception as e:
+        return {"error": f"Error getting markers: {e}"}
+
+
+def delete_clip_markers(resolve, clip_name: str, color: str = "All") -> str:
+    """Delete markers from a clip by color.
+    
+    Args:
+        resolve: DaVinci Resolve instance
+        clip_name: Name of the clip
+        color: Marker color to delete, or 'All' to delete all markers
+    """
+    clip, error = find_clip_by_name(resolve, clip_name)
+    if error:
+        return f"Error: {error}"
+    
+    try:
+        result = clip.DeleteMarkersByColor(color)
+        if result:
+            return f"Deleted {color} markers from '{clip_name}'"
+        return f"No {color} markers found or deletion failed"
+    except Exception as e:
+        return f"Error deleting markers: {e}"
+
+
+def delete_clip_marker_at_frame(resolve, clip_name: str, frame: int) -> str:
+    """Delete a specific marker at a frame."""
+    clip, error = find_clip_by_name(resolve, clip_name)
+    if error:
+        return f"Error: {error}"
+    
+    try:
+        result = clip.DeleteMarkerAtFrame(frame)
+        if result:
+            return f"Deleted marker at frame {frame} from '{clip_name}'"
+        return f"No marker found at frame {frame}"
+    except Exception as e:
+        return f"Error deleting marker: {e}"
+
+
+# --- Clip Flags ---
+
+def add_clip_flag(resolve, clip_name: str, color: str) -> str:
+    """Add a flag to a clip.
+    
+    Args:
+        resolve: DaVinci Resolve instance
+        clip_name: Name of the clip
+        color: Flag color (Blue, Cyan, Green, Yellow, Red, Pink, Purple, etc)
+    """
+    clip, error = find_clip_by_name(resolve, clip_name)
+    if error:
+        return f"Error: {error}"
+    
+    try:
+        result = clip.AddFlag(color)
+        if result:
+            return f"Added {color} flag to '{clip_name}'"
+        return f"Failed to add {color} flag"
+    except Exception as e:
+        return f"Error adding flag: {e}"
+
+
+def get_clip_flags(resolve, clip_name: str) -> Dict[str, Any]:
+    """Get all flags from a clip."""
+    clip, error = find_clip_by_name(resolve, clip_name)
+    if error:
+        return {"error": error}
+    
+    try:
+        flags = clip.GetFlagList()
+        return {
+            "clip_name": clip_name,
+            "flags": flags if flags else []
+        }
+    except Exception as e:
+        return {"error": f"Error getting flags: {e}"}
+
+
+def clear_clip_flags(resolve, clip_name: str, color: str = "All") -> str:
+    """Clear flags from a clip.
+    
+    Args:
+        resolve: DaVinci Resolve instance
+        clip_name: Name of the clip
+        color: Flag color to clear, or 'All' to clear all flags
+    """
+    clip, error = find_clip_by_name(resolve, clip_name)
+    if error:
+        return f"Error: {error}"
+    
+    try:
+        result = clip.ClearFlags(color)
+        if result:
+            return f"Cleared {color} flags from '{clip_name}'"
+        return f"No {color} flags found or clearing failed"
+    except Exception as e:
+        return f"Error clearing flags: {e}"
+
+
+# --- Clip Color ---
+
+def get_clip_color(resolve, clip_name: str) -> Dict[str, Any]:
+    """Get the clip color label."""
+    clip, error = find_clip_by_name(resolve, clip_name)
+    if error:
+        return {"error": error}
+    
+    try:
+        color = clip.GetClipColor()
+        return {
+            "clip_name": clip_name,
+            "color": color if color else "None"
+        }
+    except Exception as e:
+        return {"error": f"Error getting clip color: {e}"}
+
+
+def set_clip_color(resolve, clip_name: str, color: str) -> str:
+    """Set the clip color label.
+    
+    Args:
+        resolve: DaVinci Resolve instance
+        clip_name: Name of the clip
+        color: Color name (Orange, Apricot, Yellow, Lime, Olive, Green, Teal,
+               Navy, Blue, Purple, Violet, Pink, Tan, Beige, Brown, Chocolate)
+    """
+    clip, error = find_clip_by_name(resolve, clip_name)
+    if error:
+        return f"Error: {error}"
+    
+    try:
+        result = clip.SetClipColor(color)
+        if result:
+            return f"Set clip color to '{color}' for '{clip_name}'"
+        return f"Failed to set clip color to '{color}'"
+    except Exception as e:
+        return f"Error setting clip color: {e}"
+
+
+def clear_clip_color(resolve, clip_name: str) -> str:
+    """Clear the clip color label."""
+    clip, error = find_clip_by_name(resolve, clip_name)
+    if error:
+        return f"Error: {error}"
+    
+    try:
+        result = clip.ClearClipColor()
+        if result:
+            return f"Cleared clip color from '{clip_name}'"
+        return "Failed to clear clip color"
+    except Exception as e:
+        return f"Error clearing clip color: {e}"
+
+
+# --- Clip Rename and IDs ---
+
+def rename_clip(resolve, clip_name: str, new_name: str) -> str:
+    """Rename a media pool clip."""
+    clip, error = find_clip_by_name(resolve, clip_name)
+    if error:
+        return f"Error: {error}"
+    
+    try:
+        result = clip.SetName(new_name)
+        if result:
+            return f"Renamed '{clip_name}' to '{new_name}'"
+        return f"Failed to rename clip"
+    except Exception as e:
+        return f"Error renaming clip: {e}"
+
+
+def get_clip_unique_id(resolve, clip_name: str) -> Dict[str, Any]:
+    """Get the unique ID of a clip."""
+    clip, error = find_clip_by_name(resolve, clip_name)
+    if error:
+        return {"error": error}
+    
+    try:
+        unique_id = clip.GetUniqueId()
+        media_id = clip.GetMediaId() if hasattr(clip, 'GetMediaId') else None
+        
+        result = {
+            "clip_name": clip_name,
+            "unique_id": unique_id
+        }
+        if media_id:
+            result["media_id"] = media_id
+        return result
+    except Exception as e:
+        return {"error": f"Error getting clip ID: {e}"}
+
+
+# --- Clip Mark In/Out ---
+
+def get_clip_mark_in_out(resolve, clip_name: str) -> Dict[str, Any]:
+    """Get mark in/out points for a clip."""
+    clip, error = find_clip_by_name(resolve, clip_name)
+    if error:
+        return {"error": error}
+    
+    try:
+        mark_in_out = clip.GetMarkInOut()
+        return {
+            "clip_name": clip_name,
+            "mark_in": mark_in_out.get("markIn"),
+            "mark_out": mark_in_out.get("markOut")
+        }
+    except Exception as e:
+        return {"error": f"Error getting mark in/out: {e}"}
+
+
+def set_clip_mark_in_out(resolve, clip_name: str, mark_in: int = None, 
+                         mark_out: int = None) -> str:
+    """Set mark in/out points for a clip.
+    
+    Args:
+        resolve: DaVinci Resolve instance
+        clip_name: Name of the clip
+        mark_in: Mark in frame number
+        mark_out: Mark out frame number
+    """
+    clip, error = find_clip_by_name(resolve, clip_name)
+    if error:
+        return f"Error: {error}"
+    
+    try:
+        if mark_in is not None and mark_out is not None:
+            result = clip.SetMarkInOut(mark_in, mark_out)
+        elif mark_in is not None:
+            result = clip.SetMarkInOut(mark_in, -1)  # Set only mark in
+        elif mark_out is not None:
+            result = clip.SetMarkInOut(-1, mark_out)  # Set only mark out
+        else:
+            return "Error: At least one of mark_in or mark_out must be specified"
+        
+        if result:
+            return f"Set mark in/out for '{clip_name}'"
+        return "Failed to set mark in/out"
+    except Exception as e:
+        return f"Error setting mark in/out: {e}"
+
+
+def clear_clip_mark_in_out(resolve, clip_name: str) -> str:
+    """Clear mark in/out points for a clip."""
+    clip, error = find_clip_by_name(resolve, clip_name)
+    if error:
+        return f"Error: {error}"
+    
+    try:
+        result = clip.ClearMarkInOut()
+        if result:
+            return f"Cleared mark in/out for '{clip_name}'"
+        return "Failed to clear mark in/out"
+    except Exception as e:
+        return f"Error clearing mark in/out: {e}"
+ 

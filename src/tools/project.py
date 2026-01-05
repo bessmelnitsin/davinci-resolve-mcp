@@ -533,3 +533,189 @@ def delete_optimized_media(clip_names: List[str] = None) -> str:
         return "Failed to delete"
     except Exception as e:
         return f"Error: {e}"
+
+
+# ============================================================
+# Phase 2: Project Management Extensions
+# ============================================================
+
+from src.api.project_operations import (
+    delete_project as delete_project_impl,
+    close_project as close_project_impl,
+    rename_project as rename_project_impl,
+    get_project_unique_id as get_project_id_impl,
+    export_project as export_project_impl,
+    import_project as import_project_impl,
+    archive_project as archive_project_impl,
+    restore_project as restore_project_impl,
+    list_database_folders as list_db_folders_impl,
+    create_database_folder as create_db_folder_impl,
+    delete_database_folder as delete_db_folder_impl,
+    open_database_folder as open_db_folder_impl,
+    goto_root_folder as goto_root_impl,
+    goto_parent_folder as goto_parent_impl,
+    get_database_list as get_db_list_impl,
+    set_current_database as set_db_impl,
+)
+
+
+# --- Project Lifecycle ---
+
+@mcp.tool()
+def delete_project(name: str) -> str:
+    """Delete a project by name.
+    
+    Args:
+        name: Name of the project to delete (cannot be current project)
+    """
+    resolve = get_resolve()
+    return delete_project_impl(resolve, name)
+
+
+@mcp.tool()
+def close_project() -> str:
+    """Close the current project."""
+    resolve = get_resolve()
+    return close_project_impl(resolve)
+
+
+@mcp.tool()
+def rename_project(new_name: str) -> str:
+    """Rename the current project.
+    
+    Args:
+        new_name: New name for the project
+    """
+    resolve = get_resolve()
+    return rename_project_impl(resolve, new_name)
+
+
+@mcp.resource("resolve://project-id")
+def get_project_id() -> Dict[str, Any]:
+    """Get the unique ID of the current project."""
+    resolve = get_resolve()
+    return get_project_id_impl(resolve)
+
+
+# --- Project Import/Export ---
+
+@mcp.tool()
+def export_project(project_name: str, file_path: str, 
+                   with_stills_and_luts: bool = True) -> str:
+    """Export a project to a .drp file.
+    
+    Args:
+        project_name: Name of the project to export
+        file_path: Path for the exported file (.drp format)
+        with_stills_and_luts: Whether to include stills and LUTs
+    """
+    resolve = get_resolve()
+    return export_project_impl(resolve, project_name, file_path, with_stills_and_luts)
+
+
+@mcp.tool()
+def import_project(file_path: str, project_name: str = None) -> str:
+    """Import a project from a .drp file.
+    
+    Args:
+        file_path: Path to the project file (.drp format)
+        project_name: Optional name for the imported project
+    """
+    resolve = get_resolve()
+    return import_project_impl(resolve, file_path, project_name)
+
+
+@mcp.tool()
+def archive_project(project_name: str, file_path: str,
+                    is_archive_src_media: bool = True,
+                    is_archive_render_cache: bool = False,
+                    is_archive_proxy_media: bool = False) -> str:
+    """Archive a project to a .dra file with media.
+    
+    Args:
+        project_name: Name of the project to archive
+        file_path: Path for the archive file (.dra format)
+        is_archive_src_media: Include source media files
+        is_archive_render_cache: Include render cache
+        is_archive_proxy_media: Include proxy media
+    """
+    resolve = get_resolve()
+    return archive_project_impl(resolve, project_name, file_path,
+                                is_archive_src_media, is_archive_render_cache, is_archive_proxy_media)
+
+
+@mcp.tool()
+def restore_project(file_path: str, project_name: str = None) -> str:
+    """Restore a project from a .dra archive.
+    
+    Args:
+        file_path: Path to the archive file (.dra format)
+        project_name: Optional name for the restored project
+    """
+    resolve = get_resolve()
+    return restore_project_impl(resolve, file_path, project_name)
+
+
+# --- Database Folder Navigation ---
+
+@mcp.resource("resolve://database-folders")
+def list_database_folders() -> Dict[str, Any]:
+    """List folders in the current database folder."""
+    resolve = get_resolve()
+    return list_db_folders_impl(resolve)
+
+
+@mcp.tool()
+def create_database_folder(folder_name: str) -> str:
+    """Create a folder in the current database folder."""
+    resolve = get_resolve()
+    return create_db_folder_impl(resolve, folder_name)
+
+
+@mcp.tool()
+def delete_database_folder(folder_name: str) -> str:
+    """Delete a folder in the current database folder."""
+    resolve = get_resolve()
+    return delete_db_folder_impl(resolve, folder_name)
+
+
+@mcp.tool()
+def open_database_folder(folder_name: str) -> str:
+    """Navigate to a folder in the database."""
+    resolve = get_resolve()
+    return open_db_folder_impl(resolve, folder_name)
+
+
+@mcp.tool()
+def goto_root_folder() -> str:
+    """Navigate to the root folder of the database."""
+    resolve = get_resolve()
+    return goto_root_impl(resolve)
+
+
+@mcp.tool()
+def goto_parent_folder() -> str:
+    """Navigate to the parent folder in the database."""
+    resolve = get_resolve()
+    return goto_parent_impl(resolve)
+
+
+# --- Database Management ---
+
+@mcp.resource("resolve://databases")
+def get_database_list() -> Dict[str, Any]:
+    """Get list of available databases."""
+    resolve = get_resolve()
+    return get_db_list_impl(resolve)
+
+
+@mcp.tool()
+def set_current_database(db_info: Dict[str, str]) -> str:
+    """Switch to a different database.
+    
+    Args:
+        db_info: Database info dict with 'DbType', 'DbName', and optionally 'IpAddress'
+    """
+    resolve = get_resolve()
+    return set_db_impl(resolve, db_info)
+

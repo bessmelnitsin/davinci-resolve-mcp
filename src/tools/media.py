@@ -306,3 +306,220 @@ def add_clip_to_timeline(clip_name: str, timeline_name: str = None) -> str:
     """Append a clip to the timeline."""
     resolve = get_resolve()
     return add_clip_impl(resolve, clip_name, timeline_name)
+
+
+# ============================================================
+# Phase 3: MediaPoolItem Extended Tools
+# ============================================================
+
+from src.api.media_operations import (
+    get_clip_metadata as get_clip_metadata_impl,
+    set_clip_metadata as set_clip_metadata_impl,
+    get_clip_property as get_clip_property_impl,
+    set_clip_property as set_clip_property_impl,
+    add_clip_marker as add_clip_marker_impl,
+    get_clip_markers as get_clip_markers_impl,
+    delete_clip_markers as delete_clip_markers_impl,
+    delete_clip_marker_at_frame as delete_marker_at_frame_impl,
+    add_clip_flag as add_clip_flag_impl,
+    get_clip_flags as get_clip_flags_impl,
+    clear_clip_flags as clear_clip_flags_impl,
+    get_clip_color as get_clip_color_impl,
+    set_clip_color as set_clip_color_impl,
+    clear_clip_color as clear_clip_color_impl,
+    rename_clip as rename_clip_impl,
+    get_clip_unique_id as get_clip_id_impl,
+    get_clip_mark_in_out as get_mark_in_out_impl,
+    set_clip_mark_in_out as set_mark_in_out_impl,
+    clear_clip_mark_in_out as clear_mark_in_out_impl,
+)
+
+
+# --- Clip Metadata Tools ---
+
+@mcp.resource("resolve://clip-metadata/{clip_name}")
+def get_clip_metadata(clip_name: str) -> Dict[str, Any]:
+    """Get all metadata for a media pool clip."""
+    resolve = get_resolve()
+    return get_clip_metadata_impl(resolve, clip_name)
+
+
+@mcp.tool()
+def set_clip_metadata(clip_name: str, metadata: Dict[str, str]) -> str:
+    """Set metadata for a media pool clip.
+    
+    Args:
+        clip_name: Name of the clip
+        metadata: Dictionary of metadata key-value pairs (e.g. {"Description": "My clip"})
+    """
+    resolve = get_resolve()
+    return set_clip_metadata_impl(resolve, clip_name, metadata)
+
+
+@mcp.resource("resolve://clip-properties/{clip_name}")
+def get_clip_properties(clip_name: str) -> Dict[str, Any]:
+    """Get all properties for a media pool clip."""
+    resolve = get_resolve()
+    return get_clip_property_impl(resolve, clip_name)
+
+
+@mcp.tool()
+def set_clip_property(clip_name: str, property_name: str, value: str) -> str:
+    """Set a property for a media pool clip."""
+    resolve = get_resolve()
+    return set_clip_property_impl(resolve, clip_name, property_name, value)
+
+
+# --- Clip Markers Tools ---
+
+@mcp.tool()
+def add_clip_marker(clip_name: str, frame: int, color: str = "Blue",
+                    name: str = "", note: str = "", duration: int = 1) -> str:
+    """Add a marker to a media pool clip.
+    
+    Args:
+        clip_name: Name of the clip
+        frame: Frame number for the marker
+        color: Marker color (Blue, Cyan, Green, Yellow, Red, Pink, Purple, etc)
+        name: Marker name/title
+        note: Marker note text
+        duration: Duration in frames
+    """
+    resolve = get_resolve()
+    return add_clip_marker_impl(resolve, clip_name, frame, color, name, note, duration)
+
+
+@mcp.resource("resolve://clip-markers/{clip_name}")
+def get_clip_markers(clip_name: str) -> Dict[str, Any]:
+    """Get all markers from a media pool clip."""
+    resolve = get_resolve()
+    return get_clip_markers_impl(resolve, clip_name)
+
+
+@mcp.tool()
+def delete_clip_markers(clip_name: str, color: str = "All") -> str:
+    """Delete markers from a clip by color.
+    
+    Args:
+        clip_name: Name of the clip
+        color: Marker color to delete, or 'All' for all markers
+    """
+    resolve = get_resolve()
+    return delete_clip_markers_impl(resolve, clip_name, color)
+
+
+@mcp.tool()
+def delete_clip_marker_at_frame(clip_name: str, frame: int) -> str:
+    """Delete a specific marker at a frame."""
+    resolve = get_resolve()
+    return delete_marker_at_frame_impl(resolve, clip_name, frame)
+
+
+# --- Clip Flags Tools ---
+
+@mcp.tool()
+def add_clip_flag(clip_name: str, color: str) -> str:
+    """Add a flag to a media pool clip.
+    
+    Args:
+        clip_name: Name of the clip
+        color: Flag color (Blue, Cyan, Green, Yellow, Red, Pink, Purple, etc)
+    """
+    resolve = get_resolve()
+    return add_clip_flag_impl(resolve, clip_name, color)
+
+
+@mcp.resource("resolve://clip-flags/{clip_name}")
+def get_clip_flags(clip_name: str) -> Dict[str, Any]:
+    """Get all flags from a media pool clip."""
+    resolve = get_resolve()
+    return get_clip_flags_impl(resolve, clip_name)
+
+
+@mcp.tool()
+def clear_clip_flags(clip_name: str, color: str = "All") -> str:
+    """Clear flags from a clip.
+    
+    Args:
+        clip_name: Name of the clip
+        color: Flag color to clear, or 'All' for all flags
+    """
+    resolve = get_resolve()
+    return clear_clip_flags_impl(resolve, clip_name, color)
+
+
+# --- Clip Color Tools ---
+
+@mcp.resource("resolve://clip-color/{clip_name}")
+def get_clip_color(clip_name: str) -> Dict[str, Any]:
+    """Get the clip color label."""
+    resolve = get_resolve()
+    return get_clip_color_impl(resolve, clip_name)
+
+
+@mcp.tool()
+def set_clip_color(clip_name: str, color: str) -> str:
+    """Set the clip color label.
+    
+    Args:
+        clip_name: Name of the clip
+        color: Color name (Orange, Apricot, Yellow, Lime, Olive, Green, Teal,
+               Navy, Blue, Purple, Violet, Pink, Tan, Beige, Brown, Chocolate)
+    """
+    resolve = get_resolve()
+    return set_clip_color_impl(resolve, clip_name, color)
+
+
+@mcp.tool()
+def clear_clip_color(clip_name: str) -> str:
+    """Clear the clip color label."""
+    resolve = get_resolve()
+    return clear_clip_color_impl(resolve, clip_name)
+
+
+# --- Clip Rename Tool ---
+
+@mcp.tool()
+def rename_clip(clip_name: str, new_name: str) -> str:
+    """Rename a media pool clip."""
+    resolve = get_resolve()
+    return rename_clip_impl(resolve, clip_name, new_name)
+
+
+# --- Clip ID Resource ---
+
+@mcp.resource("resolve://clip-id/{clip_name}")
+def get_clip_id(clip_name: str) -> Dict[str, Any]:
+    """Get the unique ID and media ID of a clip."""
+    resolve = get_resolve()
+    return get_clip_id_impl(resolve, clip_name)
+
+
+# --- Clip Mark In/Out Tools ---
+
+@mcp.resource("resolve://clip-mark-in-out/{clip_name}")
+def get_clip_mark_in_out(clip_name: str) -> Dict[str, Any]:
+    """Get mark in/out points for a clip."""
+    resolve = get_resolve()
+    return get_mark_in_out_impl(resolve, clip_name)
+
+
+@mcp.tool()
+def set_clip_mark_in_out(clip_name: str, mark_in: int = None, mark_out: int = None) -> str:
+    """Set mark in/out points for a clip.
+    
+    Args:
+        clip_name: Name of the clip
+        mark_in: Mark in frame number
+        mark_out: Mark out frame number
+    """
+    resolve = get_resolve()
+    return set_mark_in_out_impl(resolve, clip_name, mark_in, mark_out)
+
+
+@mcp.tool()
+def clear_clip_mark_in_out(clip_name: str) -> str:
+    """Clear mark in/out points for a clip."""
+    resolve = get_resolve()
+    return clear_mark_in_out_impl(resolve, clip_name)
+

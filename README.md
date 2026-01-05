@@ -319,31 +319,48 @@ For a complete manual installation:
 
 ## Available Features
 
-### General
-- Get DaVinci Resolve version
-- Get/switch current page (Edit, Color, Fusion, etc.)
+**145 MCP tools + 34 resources** across 7 modules. See [CAPABILITIES.md](CAPABILITIES.md) for complete reference.
+
+### Navigation
+- Page switching (media/cut/edit/fusion/color/fairlight/deliver)
+- System info, quit
 
 ### Project Management
-- List available projects
-- Get current project name
-- Open project by name
-- Create new project
-- Save current project
+- Create/open/save/delete/rename projects
+- Import/export/archive projects
+- Database folder management
+- Project properties and settings
 
-### Timeline Operations
-- List all timelines
-- Get current timeline info
-- Create new timeline
-- Switch to timeline by name
-- Add marker to timeline
-- Append clips to timeline (New)
-- Create timeline from clip list (New)
+### MediaPool
+- List/import/delete/move clips
+- Clip metadata, markers, flags, colors
+- Proxy media, audio sync, transcription
 
-### Media Pool Operations
-- List media pool clips
-- Import media file
-- Create media bin
-- Add clip to timeline
+### Timeline
+- Create/delete/duplicate timelines
+- Track management (video/audio/subtitle)
+- Markers, export/import (EDL/XML/AAF/FCPXML)
+- Generators, titles, compound clips
+
+### TimelineItem
+- Properties (transform, crop)
+- Color versions, stabilize, smart reframe
+- Magic Mask, copy grades
+
+### Color Page
+- Node graph operations
+- LUTs, color wheels
+- Gallery stills management
+
+### Fairlight (Audio)
+- Audio track management
+- Voice isolation
+- Level analysis
+
+### Delivery
+- Render queue management
+- Formats and presets
+
 
 ## Windows Support Notes
 
