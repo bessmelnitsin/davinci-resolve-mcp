@@ -23,19 +23,19 @@ def _get_fairlight_context(resolve) -> Tuple[bool, Any, Any, str]:
         Tuple of (success, project, timeline, error_message)
     """
     if not resolve:
-        return False, None, None, "DaVinci Resolve не подключен"
+        return False, None, None, "Not connected to DaVinci Resolve"
     
     pm = resolve.GetProjectManager()
     if not pm:
-        return False, None, None, "Не удалось получить Project Manager"
+        return False, None, None, "Failed to get Project Manager"
     
     project = pm.GetCurrentProject()
     if not project:
-        return False, None, None, "Проект не открыт"
+        return False, None, None, "No project is currently open"
     
     timeline = project.GetCurrentTimeline()
     if not timeline:
-        return False, None, None, "Нет активного timeline"
+        return False, None, None, "No active timeline"
     
     return True, project, timeline, "OK"
 
@@ -65,7 +65,7 @@ def get_audio_tracks(resolve, timeline_name: str = None) -> Dict[str, Any]:
                 found = True
                 break
         if not found:
-            return {"error": f"Timeline '{timeline_name}' не найден"}
+            return {"error": f"Timeline '{timeline_name}' not found"}
     
     try:
         audio_track_count = timeline.GetTrackCount("audio")
@@ -84,7 +84,7 @@ def get_audio_tracks(resolve, timeline_name: str = None) -> Dict[str, Any]:
                 items = timeline.GetItemListInTrack("audio", i)
                 if items:
                     track_info["items_count"] = len(items)
-            except:
+            except Exception:
                 pass
             
             tracks.append(track_info)
@@ -96,7 +96,7 @@ def get_audio_tracks(resolve, timeline_name: str = None) -> Dict[str, Any]:
         }
     except Exception as e:
         logger.error(f"Error getting audio tracks: {e}")
-        return {"error": f"Ошибка получения аудиодорожек: {str(e)}"}
+        return {"error": f"Failed to get audio tracks: {str(e)}"}
 
 
 def set_track_volume(resolve, track_index: int, volume_db: float) -> Dict[str, Any]:
@@ -144,14 +144,14 @@ def set_track_volume(resolve, track_index: int, volume_db: float) -> Dict[str, A
             }
         else:
             return {
-                "warning": "API может не поддерживать прямое управление громкостью",
-                "suggestion": "Используйте Fairlight page для ручной настройки",
+                "warning": "The scripting API may not support direct volume control",
+                "suggestion": "Use the Fairlight page for manual configuration",
                 "track_index": track_index,
                 "requested_volume_db": volume_db
             }
     except Exception as e:
         logger.error(f"Error setting track volume: {e}")
-        return {"error": f"Ошибка установки громкости: {str(e)}"}
+        return {"error": f"Failed to set volume: {str(e)}"}
 
 
 def get_audio_clip_info(resolve, track_index: int = None) -> Dict[str, Any]:
@@ -193,7 +193,7 @@ def get_audio_clip_info(resolve, track_index: int = None) -> Dict[str, Any]:
                     clip_info["start_frame"] = item.GetStart()
                     clip_info["end_frame"] = item.GetEnd()
                     clip_info["duration"] = item.GetDuration()
-                except:
+                except Exception:
                     pass
                 
                 # Get source properties
@@ -204,7 +204,7 @@ def get_audio_clip_info(resolve, track_index: int = None) -> Dict[str, Any]:
                         if clip_props:
                             clip_info["sample_rate"] = clip_props.get("Audio Sample Rate", "")
                             clip_info["channels"] = clip_props.get("Audio Channels", "")
-                except:
+                except Exception:
                     pass
                 
                 clips_info.append(clip_info)
@@ -216,7 +216,7 @@ def get_audio_clip_info(resolve, track_index: int = None) -> Dict[str, Any]:
         }
     except Exception as e:
         logger.error(f"Error getting audio clip info: {e}")
-        return {"error": f"Ошибка получения информации о клипах: {str(e)}"}
+        return {"error": f"Failed to get clip information: {str(e)}"}
 
 
 def analyze_audio_levels(resolve, clip_name: str = None) -> Dict[str, Any]:
@@ -250,8 +250,8 @@ def analyze_audio_levels(resolve, clip_name: str = None) -> Dict[str, Any]:
             "frame_rate": frame_rate,
             "audio_track_count": audio_tracks,
             "analysis": {
-                "note": "Детальный анализ уровней требует DaVinci Resolve Studio",
-                "suggestion": "Используйте Fairlight page для просмотра loudness meters"
+                "note": "Detailed level analysis requires DaVinci Resolve Studio",
+                "suggestion": "Use the Fairlight page to view loudness meters"
             }
         }
         
@@ -274,7 +274,7 @@ def analyze_audio_levels(resolve, clip_name: str = None) -> Dict[str, Any]:
         
     except Exception as e:
         logger.error(f"Error analyzing audio: {e}")
-        return {"error": f"Ошибка анализа аудио: {str(e)}"}
+        return {"error": f"Audio analysis failed: {str(e)}"}
 
 
 def add_audio_track(resolve, track_type: str = "stereo") -> Dict[str, Any]:
@@ -316,11 +316,11 @@ def add_audio_track(resolve, track_type: str = "stereo") -> Dict[str, Any]:
                 "track_type": actual_type
             }
         else:
-            return {"error": "Не удалось добавить аудиодорожку"}
+            return {"error": "Failed to add audio track"}
             
     except Exception as e:
         logger.error(f"Error adding audio track: {e}")
-        return {"error": f"Ошибка добавления дорожки: {str(e)}"}
+        return {"error": f"Failed to add track: {str(e)}"}
 
 
 def delete_audio_track(resolve, track_index: int) -> Dict[str, Any]:
@@ -354,11 +354,11 @@ def delete_audio_track(resolve, track_index: int) -> Dict[str, Any]:
                 "new_count": new_count
             }
         else:
-            return {"error": f"Не удалось удалить дорожку {track_index}"}
+            return {"error": f"Failed to remove track {track_index}"}
             
     except Exception as e:
         logger.error(f"Error deleting audio track: {e}")
-        return {"error": f"Ошибка удаления дорожки: {str(e)}"}
+        return {"error": f"Failed to remove track: {str(e)}"}
 
 
 def set_track_enabled(resolve, track_index: int, enabled: bool) -> Dict[str, Any]:
@@ -392,14 +392,14 @@ def set_track_enabled(resolve, track_index: int, enabled: bool) -> Dict[str, Any
             }
         else:
             return {
-                "warning": "SetTrackEnable может не поддерживаться",
+                "warning": "SetTrackEnable may not be supported",
                 "track_index": track_index,
                 "requested_state": enabled
             }
             
     except Exception as e:
         logger.error(f"Error setting track enabled state: {e}")
-        return {"error": f"Ошибка изменения состояния дорожки: {str(e)}"}
+        return {"error": f"Failed to change track state: {str(e)}"}
 
 
 def voice_isolation(resolve, clip_name: str) -> Dict[str, Any]:
@@ -438,26 +438,26 @@ def voice_isolation(resolve, clip_name: str) -> Dict[str, Any]:
                 break
         
         if not target_clip:
-            return {"error": f"Клип '{clip_name}' не найден в timeline"}
+            return {"error": f"Clip '{clip_name}' not found in timeline"}
         
         # Voice isolation is typically applied through the Fairlight FX
         # The API access is limited, provide guidance
         return {
             "clip_found": True,
             "clip_name": clip_name,
-            "note": "Voice Isolation требует DaVinci Resolve Studio",
+            "note": "Voice Isolation requires DaVinci Resolve Studio",
             "instructions": [
-                "1. Выберите клип на Fairlight page",
-                "2. Откройте Effects Library → Audio FX → Fairlight FX",
-                "3. Найдите 'Voice Isolation' или 'Dialogue Isolation'",
-                "4. Перетащите эффект на клип",
-                "5. Настройте параметры в Inspector"
+                "1. Select a clip on the Fairlight page",
+                "2. Open Effects Library -> Audio FX -> Fairlight FX",
+                "3. Find 'Voice Isolation' or 'Dialogue Isolation'",
+                "4. Drag the effect onto the clip",
+                "5. Adjust parameters in the Inspector"
             ]
         }
         
     except Exception as e:
         logger.error(f"Error with voice isolation: {e}")
-        return {"error": f"Ошибка voice isolation: {str(e)}"}
+        return {"error": f"Voice isolation failed: {str(e)}"}
 
 
 def normalize_audio(resolve, target_lufs: float = -14.0) -> Dict[str, Any]:
@@ -488,12 +488,12 @@ def normalize_audio(resolve, target_lufs: float = -14.0) -> Dict[str, Any]:
             "cinema": -24.0
         },
         "instructions": [
-            f"1. Перейдите на Fairlight page",
-            f"2. Откройте Effects Library → Audio FX → Dynamics",
-            f"3. Добавьте 'Limiter' на мастер-шину",
-            f"4. Установите целевой уровень: {target_lufs} LUFS",
-            "5. Включите Loudness meter для контроля",
-            "6. При необходимости добавьте Compressor перед Limiter"
+            f"1. Open the Fairlight page",
+            f"2. Open Effects Library -> Audio FX -> Dynamics",
+            f"3. Add a 'Limiter' on the master bus",
+            f"4. Set target level: {target_lufs} LUFS",
+            "5. Enable the Loudness meter for monitoring",
+            "6. If needed, add a Compressor before the Limiter"
         ],
         "timeline": timeline.GetName()
     }

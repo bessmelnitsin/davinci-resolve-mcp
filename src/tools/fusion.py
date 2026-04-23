@@ -29,7 +29,8 @@ from src.api.fusion_operations import (
 # Fusion Composition Tools
 # ============================================================
 
-@mcp.tool()
+from src.utils.safety import READ_ONLY, SAFE_WRITE, DESTRUCTIVE
+@mcp.tool(annotations=READ_ONLY)
 def get_fusion_composition(clip_name: str = None) -> str:
     """Get Fusion composition information for a timeline clip.
     
@@ -61,7 +62,7 @@ def get_fusion_composition(clip_name: str = None) -> str:
     return result.get("message", "Could not get Fusion composition")
 
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def create_fusion_clip_tool(clip_name: str = None) -> str:
     """Convert a timeline clip to a Fusion clip for advanced compositing.
     
@@ -82,7 +83,7 @@ def create_fusion_clip_tool(clip_name: str = None) -> str:
     return result.get("message", "Failed to create Fusion clip")
 
 
-@mcp.tool()
+@mcp.tool(annotations=READ_ONLY)
 def list_fusion_templates_tool() -> str:
     """List available Fusion templates and generators.
     
@@ -129,7 +130,7 @@ def list_fusion_templates_tool() -> str:
 # Text and Graphics Tools
 # ============================================================
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def add_text_plus_node(text: str, font: str = "Arial", 
                        size: float = 0.1,
                        position_x: float = 0.5, 
@@ -166,7 +167,7 @@ def add_text_plus_node(text: str, font: str = "Arial",
     return result.get("message", "Failed to add Text+ node")
 
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def create_lower_third_tool(name: str, title: str, 
                             subtitle: str = "",
                             style: str = "minimal") -> str:
@@ -203,7 +204,7 @@ def create_lower_third_tool(name: str, title: str,
 # Insert Elements Tools
 # ============================================================
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def insert_fusion_generator(generator_name: str, 
                             duration_frames: int = 150,
                             track_index: int = 1) -> str:
@@ -228,7 +229,7 @@ def insert_fusion_generator(generator_name: str,
     return result.get("message", "Failed to insert generator")
 
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def insert_fusion_title(title_name: str = "Text+") -> str:
     """Insert a Fusion title into the timeline.
     
@@ -253,7 +254,7 @@ def insert_fusion_title(title_name: str = "Text+") -> str:
 # Fusion Node Tools
 # ============================================================
 
-@mcp.tool()
+@mcp.tool(annotations=READ_ONLY)
 def get_fusion_nodes() -> str:
     """Get list of nodes in the current Fusion composition.
     
@@ -284,7 +285,7 @@ def get_fusion_nodes() -> str:
 # Export/Import Tools
 # ============================================================
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def export_fusion_composition(output_path: str) -> str:
     """Export current Fusion composition as a .setting file.
     
@@ -307,7 +308,7 @@ def export_fusion_composition(output_path: str) -> str:
     return result.get("message", "Failed to export Fusion composition")
 
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def import_fusion_composition(setting_path: str, 
                               clip_name: str = None) -> str:
     """Import a .setting file as a Fusion composition.

@@ -4,28 +4,40 @@ DaVinci Resolve Delivery Page Operations
 """
 
 import logging
+import os
+import time
 from typing import Dict, Any, List, Optional, Union, Tuple
 
 logger = logging.getLogger("davinci-resolve-mcp.delivery")
 
-def get_render_presets(resolve) -> List[Dict[str, Any]]:
+
+# Delay profile (seconds). Overrideable via env so fast test rigs don't wait
+# the full GUI-update budget. Values are conservative defaults tuned for a
+# warm Resolve with no plugin stalls.
+_DELAY_ADD_RETRY = float(os.environ.get("MCP_DELIVERY_DELAY_ADD_RETRY", "0.5"))
+_DELAY_STOP_RENDER = float(os.environ.get("MCP_DELIVERY_DELAY_STOP_RENDER", "0.5"))
+_DELAY_SETTINGS_REFRESH = float(os.environ.get("MCP_DELIVERY_DELAY_SETTINGS", "1.0"))
+_DELAY_PAGE_SWITCH = float(os.environ.get("MCP_DELIVERY_DELAY_PAGE", "0.3"))
+
+def get_render_presets(resolve) -> Union[List[Dict[str, Any]], Dict[str, Any]]:
     """Get all available render presets in the current project.
-    
+
     Args:
         resolve: DaVinci Resolve instance
-        
+
     Returns:
-        List of dictionaries containing preset information
+        On success: list of dictionaries with preset information.
+        On failure: dictionary with an "error" key describing the failure.
     """
     if not resolve:
         logger.error("No connection to DaVinci Resolve")
         return {"error": "No connection to DaVinci Resolve"}
-    
+
     project_manager = resolve.GetProjectManager()
     if not project_manager:
         logger.error("Failed to get Project Manager")
         return {"error": "Failed to get Project Manager"}
-    
+
     current_project = project_manager.GetCurrentProject()
     if not current_project:
         logger.error("No project is currently open")
@@ -209,8 +221,7 @@ def add_to_render_queue(
             render_settings_interface.SetRenderSettings(settings_to_apply)
             
             # Try adding again after a small delay
-            import time
-            time.sleep(0.5)
+            time.sleep(_DELAY_ADD_RETRY)
             
             if use_in_out_range:
                 result = current_project.AddRenderJobToRenderQueue()
@@ -388,7 +399,7 @@ def get_render_queue_status(resolve) -> Dict[str, Any]:
                     time_remaining = current_project.GetRenderJobEstimatedTimeRemaining(job_id)
                     if time_remaining:
                         job_info["time_remaining"] = time_remaining
-                except:
+                except Exception:
                     # Not all properties are available for all job states
                     pass
                 
@@ -468,17 +479,16 @@ def clear_render_queue(resolve) -> Dict[str, Any]:
                 if status == "Rendering":
                     is_rendering = True
                     break
-            except:
+            except Exception:
                 pass
-        
+
         # If jobs are rendering, we need to stop rendering first
         if is_rendering:
             logger.info("Stopping active rendering before clearing queue")
             try:
                 current_project.StopRendering()
                 # Small delay to allow DaVinci Resolve to update job statuses
-                import time
-                time.sleep(0.5)  
+                time.sleep(_DELAY_STOP_RENDER)
             except Exception as e:
                 logger.warning(f"Issue stopping rendering: {str(e)}")
         
@@ -546,8 +556,7 @@ def ensure_render_settings(resolve, current_project) -> Tuple[bool, Optional[Any
     # Try one more approach - sometimes a delay helps
     try:
         logger.info("Trying with a small delay")
-        import time
-        time.sleep(1.0)  # Short delay
+        time.sleep(_DELAY_SETTINGS_REFRESH)
         
         render_settings_interface = current_project.GetRenderSettings()
         if render_settings_interface:
@@ -619,22 +628,21 @@ def add_render_job_robust(
         Dictionary with job_id on success or error information
     """
     if not resolve:
-        return {"error": "DaVinci Resolve не подключен"}
-    
+        return {"error": "Not connected to DaVinci Resolve"}
+
     pm = resolve.GetProjectManager()
     if not pm:
-        return {"error": "Не удалось получить Project Manager"}
-    
+        return {"error": "Failed to get Project Manager"}
+
     project = pm.GetCurrentProject()
     if not project:
-        return {"error": "Проект не открыт"}
-    
+        return {"error": "No project is currently open"}
+
     # Switch to Deliver page
     if resolve.GetCurrentPage() != "deliver":
         resolve.OpenPage("deliver")
-        import time
-        time.sleep(0.3)
-    
+        time.sleep(_DELAY_PAGE_SWITCH)
+
     # Get or switch timeline
     if timeline_name:
         timeline = None
@@ -644,12 +652,12 @@ def add_render_job_robust(
                 timeline = t
                 break
         if not timeline:
-            return {"error": f"Timeline '{timeline_name}' не найден"}
+            return {"error": f"Timeline '{timeline_name}' not found"}
         project.SetCurrentTimeline(timeline)
     else:
         timeline = project.GetCurrentTimeline()
         if not timeline:
-            return {"error": "Нет активного timeline"}
+            return {"error": "No active timeline"}
     
     timeline_name = timeline.GetName()
     logger.info(f"Adding render job for timeline: {timeline_name}")
@@ -750,10 +758,10 @@ def add_render_job_robust(
     
     # All methods failed
     return {
-        "error": "Не удалось добавить задание в очередь рендера",
-        "suggestion": "Попробуйте добавить задание вручную через Deliver page",
+        "error": "Failed to add render job to queue",
+        "suggestion": "Try adding the job manually from the Deliver page",
         "timeline": timeline_name,
-        "details": "Все 4 метода добавления задания не сработали"
+        "details": "All 4 add-job strategies failed"
     }
 
 
@@ -764,31 +772,31 @@ def get_render_formats(resolve) -> Dict[str, Any]:
         Dictionary with formats and their available codecs
     """
     if not resolve:
-        return {"error": "DaVinci Resolve не подключен"}
-    
+        return {"error": "Not connected to DaVinci Resolve"}
+
     pm = resolve.GetProjectManager()
     if not pm:
-        return {"error": "Не удалось получить Project Manager"}
-    
+        return {"error": "Failed to get Project Manager"}
+
     project = pm.GetCurrentProject()
     if not project:
-        return {"error": "Проект не открыт"}
-    
+        return {"error": "No project is currently open"}
+
     try:
         formats = project.GetRenderFormats()
         result = {"formats": {}}
-        
+
         if formats:
             for fmt in formats:
                 try:
                     codecs = project.GetRenderCodecs(fmt)
                     result["formats"][fmt] = list(codecs.keys()) if isinstance(codecs, dict) else codecs
-                except:
+                except Exception:
                     result["formats"][fmt] = []
-        
+
         return result
     except Exception as e:
-        return {"error": f"Ошибка получения форматов: {str(e)}"}
+        return {"error": f"Failed to get render formats: {str(e)}"}
 
 
 # ============================================================

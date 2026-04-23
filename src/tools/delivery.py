@@ -16,19 +16,20 @@ from src.api.delivery_operations import (
     get_render_formats as get_formats_impl,
 )
 
+from src.utils.safety import READ_ONLY, SAFE_WRITE, DESTRUCTIVE
 @mcp.resource("resolve://delivery/render-presets")
 def get_render_presets() -> List[Dict[str, Any]]:
     """Get all available render presets in the current project."""
     resolve = get_resolve()
     return get_presets_impl(resolve)
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def add_to_render_queue(preset_name: str, timeline_name: str = None, use_in_out_range: bool = False) -> Dict[str, Any]:
     """Add a timeline to the render queue with the specified preset."""
     resolve = get_resolve()
     return add_queue_impl(resolve, preset_name, timeline_name, use_in_out_range)
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def start_render() -> Dict[str, Any]:
     """Start rendering the jobs in the render queue."""
     resolve = get_resolve()
@@ -40,7 +41,7 @@ def get_render_queue_status() -> Dict[str, Any]:
     resolve = get_resolve()
     return get_status_impl(resolve)
 
-@mcp.tool()
+@mcp.tool(annotations=DESTRUCTIVE)
 def clear_render_queue() -> Dict[str, Any]:
     """Clear all jobs from the render queue."""
     resolve = get_resolve()
@@ -51,7 +52,7 @@ def clear_render_queue() -> Dict[str, Any]:
 # Phase 8: Extended Delivery Tools
 # ============================================================
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def stop_render() -> Dict[str, Any]:
     """Stop the current rendering process."""
     resolve = get_resolve()
@@ -75,7 +76,7 @@ def stop_render() -> Dict[str, Any]:
         return {"error": f"Failed to stop rendering: {e}"}
 
 
-@mcp.tool()
+@mcp.tool(annotations=DESTRUCTIVE)
 def delete_render_job(job_id: str) -> Dict[str, Any]:
     """Delete a specific render job from the queue.
     
@@ -103,7 +104,7 @@ def delete_render_job(job_id: str) -> Dict[str, Any]:
         return {"error": f"Error deleting render job: {e}"}
 
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def add_render_job(preset_name: str = None, output_dir: str = None,
                    output_filename: str = None, timeline_name: str = None) -> Dict[str, Any]:
     """Add a render job with robust fallback methods.
@@ -119,14 +120,14 @@ def add_render_job(preset_name: str = None, output_dir: str = None,
                                None, None, timeline_name)
 
 
-@mcp.tool()
+@mcp.tool(annotations=READ_ONLY)
 def get_render_formats() -> Dict[str, Any]:
     """Get all available render formats and their codecs."""
     resolve = get_resolve()
     return get_formats_impl(resolve)
 
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def set_render_settings(settings: Dict[str, Any]) -> Dict[str, Any]:
     """Apply render settings to the current project.
     
@@ -158,7 +159,7 @@ def set_render_settings(settings: Dict[str, Any]) -> Dict[str, Any]:
         return {"error": f"Error applying settings: {e}"}
 
 
-@mcp.tool()
+@mcp.tool(annotations=READ_ONLY)
 def get_current_render_mode() -> Dict[str, Any]:
     """Get the current render mode and settings overview."""
     resolve = get_resolve()
@@ -184,14 +185,14 @@ def get_current_render_mode() -> Dict[str, Any]:
             if format_codec:
                 result["format"] = format_codec.get("format")
                 result["codec"] = format_codec.get("codec")
-        except:
+        except Exception:
             pass
         
         # Get queue count
         try:
             jobs = project.GetRenderJobList()
             result["queue_jobs"] = len(jobs) if jobs else 0
-        except:
+        except Exception:
             pass
         
         return result
@@ -199,7 +200,7 @@ def get_current_render_mode() -> Dict[str, Any]:
         return {"error": f"Error getting render mode: {e}"}
 
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def load_render_preset(preset_name: str) -> str:
     """Load a render preset by name.
     
@@ -226,7 +227,7 @@ def load_render_preset(preset_name: str) -> str:
         return f"Error loading preset: {e}"
 
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def save_render_preset(preset_name: str) -> str:
     """Save current render settings as a preset.
     
@@ -257,7 +258,7 @@ def save_render_preset(preset_name: str) -> str:
 # Phase 1.4: Critical Delivery Extensions
 # ============================================================
 
-@mcp.tool()
+@mcp.tool(annotations=READ_ONLY)
 def is_rendering_in_progress() -> Dict[str, Any]:
     """Check if rendering is currently in progress.
     
@@ -285,7 +286,7 @@ def is_rendering_in_progress() -> Dict[str, Any]:
         return {"error": f"Error checking render status: {e}"}
 
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def set_current_render_format(format_name: str, codec_name: str) -> str:
     """Set the current render format and codec.
     
@@ -314,7 +315,7 @@ def set_current_render_format(format_name: str, codec_name: str) -> str:
         return f"Error setting format: {e}"
 
 
-@mcp.tool()
+@mcp.tool(annotations=READ_ONLY)
 def get_current_render_format() -> Dict[str, Any]:
     """Get the currently selected render format and codec."""
     resolve = get_resolve()
@@ -341,7 +342,7 @@ def get_current_render_format() -> Dict[str, Any]:
         return {"error": f"Error getting format: {e}"}
 
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def set_render_mode(render_mode: int) -> str:
     """Set the render mode.
     
@@ -370,7 +371,7 @@ def set_render_mode(render_mode: int) -> str:
         return f"Error setting render mode: {e}"
 
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def export_current_frame_as_still(file_path: str) -> str:
     """Export the current frame as a still image.
     
@@ -402,7 +403,7 @@ def export_current_frame_as_still(file_path: str) -> str:
 # Phase 3: Quick Export
 # ============================================================
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def quick_export(preset_name: str = None) -> str:
     """Render using Quick Export with specified preset.
     
@@ -449,7 +450,7 @@ from src.api.delivery_operations import (
 )
 
 
-@mcp.tool()
+@mcp.tool(annotations=READ_ONLY)
 def get_render_resolutions() -> Dict[str, Any]:
     """Get available render resolutions for the current project.
     
@@ -459,7 +460,7 @@ def get_render_resolutions() -> Dict[str, Any]:
     return get_resolutions_impl(resolve)
 
 
-@mcp.tool()
+@mcp.tool(annotations=READ_ONLY)
 def get_quick_export_presets() -> Dict[str, Any]:
     """Get available quick export render presets.
     
@@ -470,7 +471,7 @@ def get_quick_export_presets() -> Dict[str, Any]:
     return get_quick_presets_impl(resolve)
 
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def render_with_quick_export(preset_name: str, output_path: str,
                               timeline_name: str = None) -> str:
     """Render a timeline using quick export with full path control.

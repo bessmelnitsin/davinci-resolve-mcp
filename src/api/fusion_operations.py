@@ -22,19 +22,19 @@ def _get_fusion_context(resolve) -> Tuple[bool, Any, Any, Any, str]:
         Tuple of (success, project, timeline, current_clip, error_message)
     """
     if not resolve:
-        return False, None, None, None, "DaVinci Resolve не подключен"
+        return False, None, None, None, "Not connected to DaVinci Resolve"
     
     pm = resolve.GetProjectManager()
     if not pm:
-        return False, None, None, None, "Не удалось получить Project Manager"
+        return False, None, None, None, "Failed to get Project Manager"
     
     project = pm.GetCurrentProject()
     if not project:
-        return False, None, None, None, "Проект не открыт"
+        return False, None, None, None, "No project is currently open"
     
     timeline = project.GetCurrentTimeline()
     if not timeline:
-        return False, None, None, None, "Нет активного timeline"
+        return False, None, None, None, "No active timeline"
     
     return True, project, timeline, None, "OK"
 
@@ -78,7 +78,7 @@ def get_fusion_comp(resolve, clip_name: str = None) -> Dict[str, Any]:
                 break
         
         if not target_clip:
-            return {"error": f"Клип не найден" + (f": '{clip_name}'" if clip_name else "")}
+            return {"error": f"Clip not found" + (f": '{clip_name}'" if clip_name else "")}
         
         # Get Fusion composition
         fusion_comp = target_clip.GetFusionCompByIndex(1)
@@ -115,7 +115,7 @@ def get_fusion_comp(resolve, clip_name: str = None) -> Dict[str, Any]:
         
     except Exception as e:
         logger.error(f"Error getting Fusion comp: {e}")
-        return {"error": f"Ошибка получения Fusion композиции: {str(e)}"}
+        return {"error": f"Failed to get Fusion compositions: {str(e)}"}
 
 
 def create_fusion_clip(resolve, clip_name: str = None) -> Dict[str, Any]:
@@ -147,7 +147,7 @@ def create_fusion_clip(resolve, clip_name: str = None) -> Dict[str, Any]:
                 break
         
         if not target_clip:
-            return {"error": "Клип не найден"}
+            return {"error": "Clip not found"}
         
         # Add Fusion composition
         result = target_clip.AddFusionComp()
@@ -159,11 +159,11 @@ def create_fusion_clip(resolve, clip_name: str = None) -> Dict[str, Any]:
                 "comp_count": target_clip.GetFusionCompCount()
             }
         else:
-            return {"error": "Не удалось создать Fusion композицию"}
+            return {"error": "Failed to create Fusion composition"}
             
     except Exception as e:
         logger.error(f"Error creating Fusion clip: {e}")
-        return {"error": f"Ошибка создания Fusion клипа: {str(e)}"}
+        return {"error": f"Failed to create Fusion clip: {str(e)}"}
 
 
 def add_text_plus(resolve, text: str, 
@@ -204,7 +204,7 @@ def add_text_plus(resolve, text: str,
                 break
         
         if not target_clip:
-            return {"error": "Нет клипов в timeline"}
+            return {"error": "No clips in timeline"}
         
         # Get or create Fusion comp
         fusion_comp = target_clip.GetFusionCompByIndex(1)
@@ -213,20 +213,20 @@ def add_text_plus(resolve, text: str,
             fusion_comp = target_clip.GetFusionCompByIndex(1)
         
         if not fusion_comp:
-            return {"error": "Не удалось получить Fusion композицию"}
+            return {"error": "Failed to get Fusion composition"}
         
         # Create Text+ node
         # Note: Direct node creation API is limited
         return {
-            "note": "Прямое создание Text+ через API ограничено",
+            "note": "Direct Text+ creation via the API is limited",
             "instructions": [
-                "1. Выберите клип и откройте Fusion page",
-                "2. В Effects Library найдите 'Text+'",
-                "3. Добавьте Text+ между MediaIn и MediaOut",
-                f"4. Введите текст: {text}",
-                f"5. Установите шрифт: {font}",
-                f"6. Размер: {size}",
-                f"7. Позиция: {position}"
+                "1. Select a clip and open the Fusion page",
+                "2. In the Effects Library find 'Text+'",
+                "3. Add Text+ between MediaIn and MediaOut",
+                f"4. Enter text: {text}",
+                f"5. Set font: {font}",
+                f"6. Size: {size}",
+                f"7. Position: {position}"
             ],
             "clip": target_clip.GetName() if hasattr(target_clip, 'GetName') else "Unknown",
             "has_fusion_comp": fusion_comp is not None
@@ -234,7 +234,7 @@ def add_text_plus(resolve, text: str,
         
     except Exception as e:
         logger.error(f"Error adding Text+: {e}")
-        return {"error": f"Ошибка добавления текста: {str(e)}"}
+        return {"error": f"Failed to add text: {str(e)}"}
 
 
 def create_lower_third(resolve, 
@@ -259,9 +259,9 @@ def create_lower_third(resolve,
         return {"error": msg}
     
     style_descriptions = {
-        "minimal": "Простой текст с мягкой тенью",
-        "corporate": "Текст с цветной плашкой",
-        "news": "Двухстрочный стиль новостей"
+        "minimal": "Plain text with soft shadow",
+        "corporate": "Text on a colored bar",
+        "news": "Two-line news style"
     }
     
     return {
@@ -273,11 +273,11 @@ def create_lower_third(resolve,
         "style_description": style_descriptions.get(style, "Custom style"),
         "instructions": [
             "1. Effects Library → Titles → Lower Thirds",
-            "2. Выберите подходящий шаблон",
-            "3. Перетащите на timeline",
-            f"4. Отредактируйте: Title = '{title}'",
-            f"5. Подзаголовок: '{subtitle}'" if subtitle else "5. Подзаголовок пуст",
-            "6. Настройте цвета и анимацию в Inspector"
+            "2. Select an appropriate template",
+            "3. Drag onto the timeline",
+            f"4. Edit: Title = '{title}'",
+            f"5. Subtitle: '{subtitle}'" if subtitle else "5. Subtitle is empty",
+            "6. Adjust colors and animation in the Inspector"
         ]
     }
 
@@ -321,7 +321,7 @@ def list_fusion_templates(resolve) -> Dict[str, Any]:
             ]
         },
         "custom_templates_path": "Effects Library → Toolbox → Templates",
-        "note": "Для создания кастомных шаблонов сохраните Fusion композицию как .setting файл"
+        "note": "To create custom templates, save the Fusion composition as a .setting file"
     }
 
 
@@ -355,11 +355,11 @@ def insert_generator(resolve,
             return {
                 "success": True,
                 "generator": generator_name,
-                "message": f"Generator '{generator_name}' добавлен в timeline"
+                "message": f"Generator '{generator_name}' added to timeline"
             }
         else:
             return {
-                "error": f"Не удалось вставить generator '{generator_name}'",
+                "error": f"Failed to insert generator '{generator_name}'",
                 "available_generators": [
                     "Solid Color",
                     "Grey Scale Gradient", 
@@ -371,7 +371,7 @@ def insert_generator(resolve,
             
     except Exception as e:
         logger.error(f"Error inserting generator: {e}")
-        return {"error": f"Ошибка вставки generator: {str(e)}"}
+        return {"error": f"Error inserting generator: {str(e)}"}
 
 
 def insert_title(resolve, title_name: str = "Text+") -> Dict[str, Any]:
@@ -395,22 +395,22 @@ def insert_title(resolve, title_name: str = "Text+") -> Dict[str, Any]:
             return {
                 "success": True,
                 "title": title_name,
-                "message": f"Title '{title_name}' добавлен в timeline",
+                "message": f"Title '{title_name}' added to timeline",
                 "next_steps": [
-                    "Выберите title на timeline",
-                    "Откройте Inspector для редактирования текста",
-                    "Используйте Fusion page для продвинутой настройки"
+                    "Select the title on the timeline",
+                    "Open the Inspector to edit text",
+                    "Use the Fusion page for advanced configuration"
                 ]
             }
         else:
             return {
-                "error": f"Не удалось вставить title '{title_name}'",
+                "error": f"Failed to insert title '{title_name}'",
                 "available_titles": ["Text", "Text+", "Scroll"]
             }
             
     except Exception as e:
         logger.error(f"Error inserting title: {e}")
-        return {"error": f"Ошибка вставки title: {str(e)}"}
+        return {"error": f"Error inserting title: {str(e)}"}
 
 
 def get_fusion_node_list(resolve) -> Dict[str, Any]:
@@ -448,13 +448,13 @@ def get_fusion_node_list(resolve) -> Dict[str, Any]:
         
         if not target_clip:
             return {
-                "error": "Не найдено клипов с Fusion композициями",
-                "suggestion": "Сначала создайте Fusion Clip с помощью create_fusion_clip()"
+                "error": "No clips with Fusion compositions found",
+                "suggestion": "First create a Fusion Clip using create_fusion_clip()"
             }
         
         fusion_comp = target_clip.GetFusionCompByIndex(1)
         if not fusion_comp:
-            return {"error": "Не удалось открыть Fusion композицию"}
+            return {"error": "Failed to open Fusion composition"}
         
         # Get all tools/nodes
         tools = fusion_comp.GetToolList()
@@ -467,7 +467,7 @@ def get_fusion_node_list(resolve) -> Dict[str, Any]:
                     attrs = tool.GetAttrs()
                     node_info["name"] = attrs.get("TOOLS_Name", str(tool_id))
                     node_info["type"] = attrs.get("TOOLS_RegID", "Unknown")
-                except:
+                except Exception:
                     node_info["name"] = str(tool_id)
                     node_info["type"] = "Unknown"
                 nodes.append(node_info)
@@ -481,7 +481,7 @@ def get_fusion_node_list(resolve) -> Dict[str, Any]:
         
     except Exception as e:
         logger.error(f"Error getting Fusion nodes: {e}")
-        return {"error": f"Ошибка получения узлов: {str(e)}"}
+        return {"error": f"Failed to get nodes: {str(e)}"}
 
 
 def export_fusion_comp(resolve, output_path: str) -> Dict[str, Any]:
@@ -513,7 +513,7 @@ def export_fusion_comp(resolve, output_path: str) -> Dict[str, Any]:
                 break
         
         if not target_clip:
-            return {"error": "Не найдено клипов с Fusion композициями"}
+            return {"error": "No clips with Fusion compositions found"}
         
         # Export
         result = target_clip.ExportFusionComp(output_path, 1)  # Export first comp
@@ -525,11 +525,11 @@ def export_fusion_comp(resolve, output_path: str) -> Dict[str, Any]:
                 "clip": target_clip.GetName() if hasattr(target_clip, 'GetName') else "Unknown"
             }
         else:
-            return {"error": "Не удалось экспортировать Fusion композицию"}
+            return {"error": "Failed to export Fusion composition"}
             
     except Exception as e:
         logger.error(f"Error exporting Fusion comp: {e}")
-        return {"error": f"Ошибка экспорта: {str(e)}"}
+        return {"error": f"Export error: {str(e)}"}
 
 
 def import_fusion_comp(resolve, setting_path: str, clip_name: str = None) -> Dict[str, Any]:
@@ -549,7 +549,7 @@ def import_fusion_comp(resolve, setting_path: str, clip_name: str = None) -> Dic
     
     import os
     if not os.path.exists(setting_path):
-        return {"error": f"Файл не найден: {setting_path}"}
+        return {"error": f"File not found: {setting_path}"}
     
     try:
         video_tracks = timeline.GetTrackCount("video")
@@ -566,7 +566,7 @@ def import_fusion_comp(resolve, setting_path: str, clip_name: str = None) -> Dic
                 break
         
         if not target_clip:
-            return {"error": "Клип не найден"}
+            return {"error": "Clip not found"}
         
         # Import
         result = target_clip.ImportFusionComp(setting_path)
@@ -579,8 +579,8 @@ def import_fusion_comp(resolve, setting_path: str, clip_name: str = None) -> Dic
                 "comp_count": target_clip.GetFusionCompCount()
             }
         else:
-            return {"error": "Не удалось импортировать Fusion композицию"}
+            return {"error": "Failed to import Fusion composition"}
             
     except Exception as e:
         logger.error(f"Error importing Fusion comp: {e}")
-        return {"error": f"Ошибка импорта: {str(e)}"}
+        return {"error": f"Import error: {str(e)}"}

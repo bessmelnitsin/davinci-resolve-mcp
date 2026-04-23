@@ -22,6 +22,7 @@ from src.utils.project_properties import (
     get_project_info
 )
 
+from src.utils.safety import READ_ONLY, SAFE_WRITE, DESTRUCTIVE
 @mcp.resource("resolve://projects")
 def list_projects() -> List[str]:
     """List all available projects in the current database."""
@@ -55,7 +56,7 @@ def get_current_project_name() -> str:
     
     return current_project.GetName()
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def open_project(name: str) -> str:
     """Open a project by name.
     
@@ -84,7 +85,7 @@ def open_project(name: str) -> str:
     else:
         return f"Failed to open project '{name}'"
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def create_project(name: str) -> str:
     """Create a new project with the given name.
     
@@ -113,7 +114,7 @@ def create_project(name: str) -> str:
     else:
         return f"Failed to create project '{name}'"
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def save_project() -> str:
     """Save the current project."""
     resolve = get_resolve()
@@ -175,7 +176,7 @@ def get_project_property_resource(property_name: str) -> Dict[str, Any]:
     value = get_project_property(current_project, property_name)
     return {property_name: value}
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def set_project_property_tool(property_name: str, property_value: Any) -> str:
     """Set a project property value.
     
@@ -219,7 +220,7 @@ def get_timeline_format() -> Dict[str, Any]:
     
     return get_timeline_format_settings(current_project)
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def set_timeline_format_tool(width: int, height: int, frame_rate: float, interlaced: bool = False) -> str:
     """Set timeline format (resolution and frame rate).
     
@@ -250,23 +251,23 @@ def set_timeline_format_tool(width: int, height: int, frame_rate: float, interla
         return "Failed to set timeline format"
 
 @mcp.resource("resolve://project/superscale")
-def get_superscale_settings() -> Dict[str, Any]:
+def get_superscale_settings_resource() -> Dict[str, Any]:
     """Get SuperScale settings for the current project."""
     resolve = get_resolve()
     if resolve is None:
         return {"error": "Not connected to DaVinci Resolve"}
-    
+
     project_manager = resolve.GetProjectManager()
     if not project_manager:
         return {"error": "Failed to get Project Manager"}
-    
+
     current_project = project_manager.GetCurrentProject()
     if not current_project:
         return {"error": "No project currently open"}
-    
+
     return get_superscale_settings(current_project)
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def set_superscale_settings_tool(enabled: bool, quality: int = 0) -> str:
     """Set SuperScale settings for the current project.
     
@@ -318,7 +319,7 @@ def get_color_settings_resource() -> Dict[str, Any]:
     
     return get_color_settings(current_project)
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def set_color_science_mode_tool(mode: str) -> str:
     """Set color science mode for the current project.
     
@@ -344,7 +345,7 @@ def set_color_science_mode_tool(mode: str) -> str:
     else:
         return f"Failed to set color science mode to '{mode}'"
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def set_color_space_tool(color_space: str, gamma: str = None) -> str:
     """Set timeline color space and gamma.
     
@@ -420,81 +421,111 @@ def get_cache_settings() -> Dict[str, Any]:
         settings[key] = proj.GetSetting(key)
     return settings
 
-@mcp.tool()
+def _get_current_project(resolve):
+    """Helper: safely get current project with None checks at each step."""
+    pm = resolve.GetProjectManager()
+    if not pm:
+        return None
+    return pm.GetCurrentProject()
+
+
+@mcp.tool(annotations=SAFE_WRITE)
 def set_cache_mode(mode: str) -> str:
+    """Set the project-level cache mode.
+
+    Args:
+        mode: One of 'auto', 'on', 'off'.
+    """
     resolve = get_resolve()
-    if not resolve: return 'Error'
+    if not resolve: return 'Error: Not connected'
     mode_map = {'auto': '0', 'on': '1', 'off': '2'}
     if mode.lower() not in mode_map: return 'Invalid mode'
-    proj = resolve.GetProjectManager().GetCurrentProject()
+    proj = _get_current_project(resolve)
+    if not proj: return 'Error: No project open'
     if proj.SetSetting('CacheMode', mode_map[mode.lower()]): return f'Set cache mode to {mode}'
     return 'Failed'
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def set_optimized_media_mode(mode: str) -> str:
+    """Set optimized-media generation mode for the current project.
+
+    Args:
+        mode: One of 'auto', 'on', 'off'.
+    """
     resolve = get_resolve()
-    if not resolve: return 'Error'
+    if not resolve: return 'Error: Not connected'
     mode_map = {'auto': '0', 'on': '1', 'off': '2'}
     if mode.lower() not in mode_map: return 'Invalid mode'
-    proj = resolve.GetProjectManager().GetCurrentProject()
+    proj = _get_current_project(resolve)
+    if not proj: return 'Error: No project open'
     if proj.SetSetting('OptimizedMediaMode', mode_map[mode.lower()]): return f'Set optimized media mode to {mode}'
     return 'Failed'
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def set_proxy_mode(mode: str) -> str:
+    """Set proxy-media usage mode for the current project.
+
+    Args:
+        mode: One of 'auto', 'on', 'off'.
+    """
     resolve = get_resolve()
-    if not resolve: return 'Error'
+    if not resolve: return 'Error: Not connected'
     mode_map = {'auto': '0', 'on': '1', 'off': '2'}
     if mode.lower() not in mode_map: return 'Invalid mode'
-    proj = resolve.GetProjectManager().GetCurrentProject()
+    proj = _get_current_project(resolve)
+    if not proj: return 'Error: No project open'
     if proj.SetSetting('ProxyMode', mode_map[mode.lower()]): return f'Set proxy mode to {mode}'
     return 'Failed'
 
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def set_proxy_quality(quality: str) -> str:
     """Set proxy media quality."""
     resolve = get_resolve()
-    if not resolve: return "Error"
+    if not resolve: return "Error: Not connected"
     quality_map = {"quarter": "0", "half": "1", "threeQuarter": "2", "full": "3"}
     if quality not in quality_map: return "Invalid quality"
-    proj = resolve.GetProjectManager().GetCurrentProject()
+    proj = _get_current_project(resolve)
+    if not proj: return "Error: No project open"
     if proj.SetSetting("ProxyQuality", quality_map[quality]): return f"Set proxy quality to {quality}"
     return "Failed"
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def set_cache_path(path_type: str, path: str) -> str:
     """Set cache file path."""
     resolve = get_resolve()
-    if not resolve: return "Error"
+    if not resolve: return "Error: Not connected"
     import os
     if not os.path.exists(path): return f"Path {path} not found"
-    proj = resolve.GetProjectManager().GetCurrentProject()
+    proj = _get_current_project(resolve)
+    if not proj: return "Error: No project open"
     key = "LocalCachePath" if path_type.lower() == "local" else "NetworkCachePath"
     if proj.SetSetting(key, path): return f"Set {key} to {path}"
     return "Failed"
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def generate_optimized_media(clip_names: List[str] = None) -> str:
     """Generate optimized media."""
     resolve = get_resolve()
-    if not resolve: return "Error"
-    proj = resolve.GetProjectManager().GetCurrentProject()
+    if not resolve: return "Error: Not connected"
+    proj = _get_current_project(resolve)
+    if not proj: return "Error: No project open"
     mp = proj.GetMediaPool()
-    
+    if not mp: return "Error: No media pool"
+
     from src.api.media_operations import get_all_media_pool_clips
     all_clips = get_all_media_pool_clips(mp)
     targets = []
-    
+
     if clip_names:
         for name in clip_names:
             found = next((c for c in all_clips if c.GetName() == name), None)
             if found: targets.append(found)
     else:
         targets = all_clips
-        
+
     if not targets: return "No clips found"
-    
+
     try:
         mp.SetCurrentFolder(mp.GetRootFolder())
         resolve.OpenPage("media")
@@ -504,27 +535,29 @@ def generate_optimized_media(clip_names: List[str] = None) -> str:
     except Exception as e:
         return f"Error: {e}"
 
-@mcp.tool()
+@mcp.tool(annotations=DESTRUCTIVE)
 def delete_optimized_media(clip_names: List[str] = None) -> str:
     """Delete optimized media."""
     resolve = get_resolve()
-    if not resolve: return "Error"
-    proj = resolve.GetProjectManager().GetCurrentProject()
+    if not resolve: return "Error: Not connected"
+    proj = _get_current_project(resolve)
+    if not proj: return "Error: No project open"
     mp = proj.GetMediaPool()
-    
+    if not mp: return "Error: No media pool"
+
     from src.api.media_operations import get_all_media_pool_clips
     all_clips = get_all_media_pool_clips(mp)
     targets = []
-    
+
     if clip_names:
         for name in clip_names:
             found = next((c for c in all_clips if c.GetName() == name), None)
             if found: targets.append(found)
     else:
         targets = all_clips
-        
+
     if not targets: return "No clips found"
-    
+
     try:
         mp.SetCurrentFolder(mp.GetRootFolder())
         resolve.OpenPage("media")
@@ -561,7 +594,7 @@ from src.api.project_operations import (
 
 # --- Project Lifecycle ---
 
-@mcp.tool()
+@mcp.tool(annotations=DESTRUCTIVE)
 def delete_project(name: str) -> str:
     """Delete a project by name.
     
@@ -572,14 +605,14 @@ def delete_project(name: str) -> str:
     return delete_project_impl(resolve, name)
 
 
-@mcp.tool()
+@mcp.tool(annotations=DESTRUCTIVE)
 def close_project() -> str:
     """Close the current project."""
     resolve = get_resolve()
     return close_project_impl(resolve)
 
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def rename_project(new_name: str) -> str:
     """Rename the current project.
     
@@ -599,7 +632,7 @@ def get_project_id() -> Dict[str, Any]:
 
 # --- Project Import/Export ---
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def export_project(project_name: str, file_path: str, 
                    with_stills_and_luts: bool = True) -> str:
     """Export a project to a .drp file.
@@ -613,7 +646,7 @@ def export_project(project_name: str, file_path: str,
     return export_project_impl(resolve, project_name, file_path, with_stills_and_luts)
 
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def import_project(file_path: str, project_name: str = None) -> str:
     """Import a project from a .drp file.
     
@@ -625,7 +658,7 @@ def import_project(file_path: str, project_name: str = None) -> str:
     return import_project_impl(resolve, file_path, project_name)
 
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def archive_project(project_name: str, file_path: str,
                     is_archive_src_media: bool = True,
                     is_archive_render_cache: bool = False,
@@ -644,7 +677,7 @@ def archive_project(project_name: str, file_path: str,
                                 is_archive_src_media, is_archive_render_cache, is_archive_proxy_media)
 
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def restore_project(file_path: str, project_name: str = None) -> str:
     """Restore a project from a .dra archive.
     
@@ -665,35 +698,35 @@ def list_database_folders() -> Dict[str, Any]:
     return list_db_folders_impl(resolve)
 
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def create_database_folder(folder_name: str) -> str:
     """Create a folder in the current database folder."""
     resolve = get_resolve()
     return create_db_folder_impl(resolve, folder_name)
 
 
-@mcp.tool()
+@mcp.tool(annotations=DESTRUCTIVE)
 def delete_database_folder(folder_name: str) -> str:
     """Delete a folder in the current database folder."""
     resolve = get_resolve()
     return delete_db_folder_impl(resolve, folder_name)
 
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def open_database_folder(folder_name: str) -> str:
     """Navigate to a folder in the database."""
     resolve = get_resolve()
     return open_db_folder_impl(resolve, folder_name)
 
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def goto_root_folder() -> str:
     """Navigate to the root folder of the database."""
     resolve = get_resolve()
     return goto_root_impl(resolve)
 
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def goto_parent_folder() -> str:
     """Navigate to the parent folder in the database."""
     resolve = get_resolve()
@@ -709,7 +742,7 @@ def get_database_list() -> Dict[str, Any]:
     return get_db_list_impl(resolve)
 
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def set_current_database(db_info: Dict[str, str]) -> str:
     """Switch to a different database.
     
@@ -724,7 +757,7 @@ def set_current_database(db_info: Dict[str, str]) -> str:
 # Phase 3: Layout Presets
 # ============================================================
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def load_layout_preset(preset_name: str) -> str:
     """Load a UI layout preset.
     
@@ -746,7 +779,7 @@ def load_layout_preset(preset_name: str) -> str:
         return f"Error: {e}"
 
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def save_layout_preset(preset_name: str) -> str:
     """Save current UI layout as a preset.
     
@@ -768,7 +801,7 @@ def save_layout_preset(preset_name: str) -> str:
         return f"Error: {e}"
 
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def export_layout_preset(preset_name: str, file_path: str) -> str:
     """Export a layout preset to a file.
     
@@ -791,7 +824,7 @@ def export_layout_preset(preset_name: str, file_path: str) -> str:
         return f"Error: {e}"
 
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def import_layout_preset(file_path: str, preset_name: str = None) -> str:
     """Import a layout preset from a file.
     
@@ -814,7 +847,7 @@ def import_layout_preset(file_path: str, preset_name: str = None) -> str:
         return f"Error: {e}"
 
 
-@mcp.tool()
+@mcp.tool(annotations=DESTRUCTIVE)
 def delete_layout_preset(preset_name: str) -> str:
     """Delete a layout preset.
     
@@ -840,7 +873,7 @@ def delete_layout_preset(preset_name: str) -> str:
 # Phase 3: Keyframe Mode
 # ============================================================
 
-@mcp.tool()
+@mcp.tool(annotations=READ_ONLY)
 def get_keyframe_mode() -> Dict[str, Any]:
     """Get the current keyframe mode."""
     resolve = get_resolve()
@@ -868,7 +901,7 @@ def get_keyframe_mode() -> Dict[str, Any]:
         return {"error": f"Error: {e}"}
 
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def set_keyframe_mode(mode: int) -> str:
     """Set the keyframe mode.
     
@@ -899,7 +932,7 @@ def set_keyframe_mode(mode: int) -> str:
 # Phase 3: Render Preset Management
 # ============================================================
 
-@mcp.tool()
+@mcp.tool(annotations=DESTRUCTIVE)
 def delete_render_preset(preset_name: str) -> str:
     """Delete a render preset.
     
@@ -927,7 +960,7 @@ def delete_render_preset(preset_name: str) -> str:
         return f"Error: {e}"
 
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def import_render_preset(file_path: str) -> str:
     """Import a render preset from a file.
     
@@ -955,7 +988,7 @@ def import_render_preset(file_path: str) -> str:
         return f"Error: {e}"
 
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def export_render_preset(preset_name: str, file_path: str) -> str:
     """Export a render preset to a file.
     
@@ -988,7 +1021,7 @@ def export_render_preset(preset_name: str, file_path: str) -> str:
 # Phase 3: Burn-in Presets
 # ============================================================
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def load_burn_in_preset(preset_name: str) -> str:
     """Load a burn-in preset.
     
@@ -1016,7 +1049,7 @@ def load_burn_in_preset(preset_name: str) -> str:
         return f"Error: {e}"
 
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def import_burn_in_preset(file_path: str) -> str:
     """Import a burn-in preset from a file.
     
@@ -1044,7 +1077,7 @@ def import_burn_in_preset(file_path: str) -> str:
         return f"Error: {e}"
 
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def export_burn_in_preset(preset_name: str, file_path: str) -> str:
     """Export a burn-in preset to a file.
     
@@ -1077,7 +1110,7 @@ def export_burn_in_preset(preset_name: str, file_path: str) -> str:
 # Phase 3: Miscellaneous
 # ============================================================
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def refresh_lut_list() -> str:
     """Refresh the LUT list in DaVinci Resolve."""
     resolve = get_resolve()
@@ -1113,7 +1146,7 @@ from src.api.project_operations import (
 )
 
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def create_cloud_project(project_name: str) -> str:
     """Create a new cloud project on Blackmagic Cloud.
     
@@ -1126,7 +1159,7 @@ def create_cloud_project(project_name: str) -> str:
     return create_cloud_impl(resolve, project_name)
 
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def load_cloud_project(project_name: str) -> str:
     """Load (open) a cloud project from Blackmagic Cloud.
     
@@ -1137,7 +1170,7 @@ def load_cloud_project(project_name: str) -> str:
     return load_cloud_impl(resolve, project_name)
 
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def import_cloud_project(file_path: str, project_name: str = None) -> str:
     """Import a local project file to Blackmagic Cloud.
     
@@ -1149,7 +1182,7 @@ def import_cloud_project(file_path: str, project_name: str = None) -> str:
     return import_cloud_impl(resolve, file_path, project_name)
 
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def restore_cloud_project(folder_path: str, project_name: str = None) -> str:
     """Restore a cloud project from a backup folder.
     

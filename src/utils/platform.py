@@ -36,11 +36,19 @@ def get_resolve_paths():
         modules_path = os.path.join(api_path, "Modules")
     
     elif platform_name == 'windows':  # Windows
-        program_files = os.environ.get('PROGRAMDATA', 'C:\\ProgramData')
+        program_data = os.environ.get('PROGRAMDATA', 'C:\\ProgramData')
         program_files_64 = os.environ.get('PROGRAMFILES', 'C:\\Program Files')
-        
-        api_path = os.path.join(program_files, 'Blackmagic Design', 'DaVinci Resolve', 'Support', 'Developer', 'Scripting')
-        lib_path = os.path.join(program_files_64, 'Blackmagic Design', 'DaVinci Resolve', 'fusionscript.dll')
+
+        api_path = os.path.join(program_data, 'Blackmagic Design', 'DaVinci Resolve', 'Support', 'Developer', 'Scripting')
+
+        # fusionscript.dll has lived in a few different locations depending on
+        # the Resolve version. Pick the first one that actually exists.
+        candidate_lib_paths = [
+            os.path.join(program_files_64, 'Blackmagic Design', 'DaVinci Resolve', 'fusionscript.dll'),
+            os.path.join(program_files_64, 'Blackmagic Design', 'DaVinci Resolve', 'Support', 'fusionscript.dll'),
+            os.path.join(program_files_64, 'Blackmagic Design', 'DaVinci Resolve', 'Support', 'Fusion', 'fusionscript.dll'),
+        ]
+        lib_path = next((p for p in candidate_lib_paths if os.path.exists(p)), candidate_lib_paths[0])
         modules_path = os.path.join(api_path, "Modules")
     
     elif platform_name == 'linux':  # Linux (not fully implemented)

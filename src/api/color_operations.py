@@ -30,7 +30,9 @@ def get_current_node(resolve) -> Dict[str, Any]:
     
     # First, ensure we're on the color page
     current_page = resolve.GetCurrentPage()
-    if current_page.lower() != "color":
+    if not current_page:
+        return {"error": "Could not determine current page (is a project open?)"}
+    if str(current_page).lower() != "color":
         return {"error": f"Not on Color page. Current page is: {current_page}"}
     
     # Get the current timeline
@@ -72,7 +74,7 @@ def get_current_node(resolve) -> Dict[str, Any]:
         try:
             node_name = current_grade.GetNodeName(current_node_index)
             node_info["name"] = node_name
-        except:
+        except Exception:
             node_info["name"] = f"Node {current_node_index}"
         
         # Try to get additional node properties if available
@@ -83,19 +85,19 @@ def get_current_node(resolve) -> Dict[str, Any]:
             # Check if node is enabled
             try:
                 properties["enabled"] = current_grade.IsNodeEnabled(current_node_index)
-            except:
+            except Exception:
                 pass
             
             # Get node type if available
             try:
                 properties["type"] = current_grade.GetNodeType(current_node_index)
-            except:
+            except Exception:
                 pass
             
             # Add properties if we found any
             if properties:
                 node_info["properties"] = properties
-        except:
+        except Exception:
             pass
         
         return node_info
@@ -141,7 +143,7 @@ def apply_lut(resolve, lut_path: str, node_index: int = None) -> str:
     
     # First, ensure we're on the color page
     current_page = resolve.GetCurrentPage()
-    if current_page.lower() != "color":
+    if not current_page or str(current_page).lower() != "color":
         # Try to switch to color page
         result = resolve.OpenPage("color")
         if not result:
@@ -184,7 +186,7 @@ def apply_lut(resolve, lut_path: str, node_index: int = None) -> str:
             try:
                 node_name = current_grade.GetNodeName(target_node_index)
                 return f"Successfully applied LUT '{os.path.basename(lut_path)}' to node '{node_name}' (index {target_node_index})"
-            except:
+            except Exception:
                 return f"Successfully applied LUT '{os.path.basename(lut_path)}' to node {target_node_index}"
         else:
             return f"Failed to apply LUT to node {target_node_index}"
@@ -225,7 +227,7 @@ def add_node(resolve, node_type: str = "serial", label: str = None) -> str:
     
     # First, ensure we're on the color page
     current_page = resolve.GetCurrentPage()
-    if current_page.lower() != "color":
+    if not current_page or str(current_page).lower() != "color":
         # Try to switch to color page
         logger.info(f"Currently on {current_page} page, switching to color page")
         result = resolve.OpenPage("color")
@@ -394,7 +396,7 @@ def copy_grade(resolve, source_clip_name: str = None, target_clip_name: str = No
     
     # First, ensure we're on the color page
     current_page = resolve.GetCurrentPage()
-    if current_page.lower() != "color":
+    if not current_page or str(current_page).lower() != "color":
         # Try to switch to color page
         result = resolve.OpenPage("color")
         if not result:
@@ -555,7 +557,9 @@ def get_color_wheels(resolve, node_index: int = None) -> Dict[str, Any]:
     
     # First, ensure we're on the color page
     current_page = resolve.GetCurrentPage()
-    if current_page.lower() != "color":
+    if not current_page:
+        return {"error": "Could not determine current page (is a project open?)"}
+    if str(current_page).lower() != "color":
         return {"error": f"Not on Color page. Current page is: {current_page}"}
     
     # Get the current timeline
@@ -591,7 +595,7 @@ def get_color_wheels(resolve, node_index: int = None) -> Dict[str, Any]:
         node_name = ""
         try:
             node_name = current_grade.GetNodeName(target_node_index)
-        except:
+        except Exception:
             node_name = f"Node {target_node_index}"
         
         # Get color wheel parameters
@@ -640,34 +644,34 @@ def get_color_wheels(resolve, node_index: int = None) -> Dict[str, Any]:
             try:
                 if hasattr(current_grade, "GetContrast"):
                     additional_controls["contrast"] = current_grade.GetContrast(target_node_index)
-            except:
+            except Exception:
                 pass
             
             # Try to get saturation
             try:
                 if hasattr(current_grade, "GetSaturation"):
                     additional_controls["saturation"] = current_grade.GetSaturation(target_node_index)
-            except:
+            except Exception:
                 pass
             
             # Try to get color temperature
             try:
                 if hasattr(current_grade, "GetColorTemp"):
                     additional_controls["color_temp"] = current_grade.GetColorTemp(target_node_index)
-            except:
+            except Exception:
                 pass
             
             # Try to get tint
             try:
                 if hasattr(current_grade, "GetTint"):
                     additional_controls["tint"] = current_grade.GetTint(target_node_index)
-            except:
+            except Exception:
                 pass
             
             # Add additional controls if any were found
             if additional_controls:
                 color_wheels["additional_controls"] = additional_controls
-        except:
+        except Exception:
             pass
         
         return color_wheels
@@ -731,7 +735,7 @@ def set_color_wheel_param(resolve, wheel: str, param: str, value: float, node_in
     
     # First, ensure we're on the color page
     current_page = resolve.GetCurrentPage()
-    if current_page.lower() != "color":
+    if not current_page or str(current_page).lower() != "color":
         # Try to switch to color page
         logger.info(f"Currently on {current_page} page, switching to color page")
         result = resolve.OpenPage("color")

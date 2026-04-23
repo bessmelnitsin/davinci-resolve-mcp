@@ -10,30 +10,41 @@ from src.context import get_resolve
 
 
 # Valid page names for OpenPage
+from src.utils.safety import READ_ONLY, SAFE_WRITE, DESTRUCTIVE
 VALID_PAGES = ["media", "cut", "edit", "fusion", "color", "fairlight", "deliver"]
 
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def open_page(page_name: str) -> str:
     """Switch to a specific page in DaVinci Resolve.
-    
+
     Args:
         page_name: One of 'media', 'cut', 'edit', 'fusion', 'color', 'fairlight', 'deliver'
     """
     resolve = get_resolve()
     if resolve is None:
         return "Error: Not connected to DaVinci Resolve"
-    
+
     page_lower = page_name.lower()
     if page_lower not in VALID_PAGES:
         return f"Error: Invalid page name '{page_name}'. Valid pages: {', '.join(VALID_PAGES)}"
-    
+
     try:
         if resolve.OpenPage(page_lower):
             return f"Switched to '{page_lower}' page"
         return f"Failed to switch to '{page_lower}' page"
     except Exception as e:
         return f"Error switching page: {e}"
+
+
+@mcp.tool(annotations=SAFE_WRITE)
+def switch_page(page: str) -> str:
+    """Switch DaVinci Resolve to the named page (alias of open_page).
+
+    Args:
+        page: One of 'media', 'cut', 'edit', 'fusion', 'color', 'fairlight', 'deliver'.
+    """
+    return open_page(page)
 
 
 @mcp.resource("resolve://current-page")
@@ -82,10 +93,10 @@ def get_system_info() -> Dict[str, Any]:
         return {"error": f"Failed to get system info: {e}"}
 
 
-@mcp.tool()
+@mcp.tool(annotations=DESTRUCTIVE)
 def quit_resolve() -> str:
     """Quit DaVinci Resolve application.
-    
+
     WARNING: This will close DaVinci Resolve. Make sure to save your project first.
     """
     resolve = get_resolve()
@@ -99,7 +110,7 @@ def quit_resolve() -> str:
         return f"Error quitting Resolve: {e}"
 
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def update_layout_preset(preset_name: str) -> str:
     """Update an existing UI layout preset with current layout.
     

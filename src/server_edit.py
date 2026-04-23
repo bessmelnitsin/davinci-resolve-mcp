@@ -1,31 +1,31 @@
 """
 DaVinci Resolve MCP Server - Edit Page Variant
 A focused server for Edit page operations using shared modules.
+
+Uses the shared mcp instance from server_instance.py so that tools
+registered in src/tools/ are available in this variant too.
 """
 
 import logging
 import sys
 
-from mcp.server.fastmcp import FastMCP
+from src.server_instance import mcp
 from src.context import set_resolve, get_resolve
 from src.utils.resolve_connection import initialize_resolve
 
-# Import tools to register them
-
+# Import tools to register them on the shared mcp instance
 import src.tools.media
 import src.tools.timeline
 
 
 # Setup logging
+from src.utils.safety import READ_ONLY, SAFE_WRITE, DESTRUCTIVE
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     handlers=[logging.StreamHandler(sys.stderr)]
 )
 logger = logging.getLogger("davinci-resolve-mcp-edit")
-
-# Initialize MCP Server (separate instance for Edit variant)
-mcp = FastMCP("DaVinciResolveEdit")
 
 # ==========================================
 # Core & Navigation Tools
@@ -45,7 +45,7 @@ def get_current_page() -> str:
     if resolve is None: return "Error: Not connected"
     return resolve.GetCurrentPage()
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def switch_page(page: str) -> str:
     """Switch to a specific page (media, cut, edit, fusion, color, fairlight, deliver)."""
     resolve = get_resolve()

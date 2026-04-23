@@ -18,9 +18,10 @@ from typing import Dict, List, Any, Optional, Union
 logger = logging.getLogger("davinci-resolve-mcp.layout_presets")
 
 # Default preset locations by platform
+# Keys match what platform.py get_platform() returns: 'darwin', 'windows', 'linux'
 DEFAULT_PRESET_PATHS = {
     "darwin": "~/Library/Application Support/Blackmagic Design/DaVinci Resolve/Presets/",
-    "win32": "C:\\ProgramData\\Blackmagic Design\\DaVinci Resolve\\Presets\\",
+    "windows": "C:\\ProgramData\\Blackmagic Design\\DaVinci Resolve\\Presets\\",
     "linux": "~/.local/share/DaVinciResolve/Presets/"
 }
 
@@ -38,15 +39,10 @@ def get_layout_preset_path(platform: str = None) -> str:
     import os
     
     # Determine platform if not specified
+    # Use same identifiers as platform.py: 'darwin', 'windows', 'linux'
     if platform is None:
         platform = platform_module.system().lower()
-        if platform == "darwin":
-            platform = "darwin"
-        elif platform == "windows":
-            platform = "win32"
-        elif platform == "linux":
-            platform = "linux"
-        else:
+        if platform not in ("darwin", "windows", "linux"):
             platform = "darwin"  # Default to macOS if unknown
     
     # Get default path for platform

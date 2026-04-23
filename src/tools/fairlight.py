@@ -29,7 +29,8 @@ from src.api.fairlight_operations import (
 # Audio Track Management
 # ============================================================
 
-@mcp.tool()
+from src.utils.safety import READ_ONLY, SAFE_WRITE, DESTRUCTIVE
+@mcp.tool(annotations=READ_ONLY)
 def get_audio_tracks(timeline_name: str = None) -> Dict[str, Any]:
     """Get list of audio tracks in the timeline.
     
@@ -40,7 +41,7 @@ def get_audio_tracks(timeline_name: str = None) -> Dict[str, Any]:
     return get_tracks_impl(resolve, timeline_name)
 
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def add_audio_track_fairlight(track_type: str = "stereo") -> Dict[str, Any]:
     """Add a new audio track to the timeline.
     
@@ -51,7 +52,7 @@ def add_audio_track_fairlight(track_type: str = "stereo") -> Dict[str, Any]:
     return add_track_impl(resolve, track_type)
 
 
-@mcp.tool()
+@mcp.tool(annotations=DESTRUCTIVE)
 def delete_audio_track_fairlight(track_index: int) -> Dict[str, Any]:
     """Delete an audio track from the timeline.
     
@@ -62,7 +63,7 @@ def delete_audio_track_fairlight(track_index: int) -> Dict[str, Any]:
     return delete_track_impl(resolve, track_index)
 
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def set_audio_track_enabled(track_index: int, enabled: bool) -> Dict[str, Any]:
     """Enable or disable (mute) an audio track.
     
@@ -74,7 +75,7 @@ def set_audio_track_enabled(track_index: int, enabled: bool) -> Dict[str, Any]:
     return set_enabled_impl(resolve, track_index, enabled)
 
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def set_audio_track_volume(track_index: int, volume_db: float) -> Dict[str, Any]:
     """Set volume for an audio track.
     
@@ -90,7 +91,7 @@ def set_audio_track_volume(track_index: int, volume_db: float) -> Dict[str, Any]
 # Audio Clip Analysis
 # ============================================================
 
-@mcp.tool()
+@mcp.tool(annotations=READ_ONLY)
 def get_audio_clip_info(track_index: int = None) -> Dict[str, Any]:
     """Get information about audio clips in the timeline.
     
@@ -101,7 +102,7 @@ def get_audio_clip_info(track_index: int = None) -> Dict[str, Any]:
     return get_clips_impl(resolve, track_index)
 
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def analyze_audio_levels(clip_name: str = None) -> Dict[str, Any]:
     """Analyze audio levels for clips.
     
@@ -116,7 +117,7 @@ def analyze_audio_levels(clip_name: str = None) -> Dict[str, Any]:
 # Audio Processing (Neural Engine)
 # ============================================================
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def apply_voice_isolation(clip_name: str) -> Dict[str, Any]:
     """Apply voice isolation using DaVinci Neural Engine.
     
@@ -129,7 +130,7 @@ def apply_voice_isolation(clip_name: str) -> Dict[str, Any]:
     return voice_isolation_impl(resolve, clip_name)
 
 
-@mcp.tool()
+@mcp.tool(annotations=READ_ONLY)
 def get_audio_normalization_guide(target_lufs: float = -14.0) -> Dict[str, Any]:
     """Get normalization guidance for audio clips.
     
@@ -149,7 +150,7 @@ def get_audio_normalization_guide(target_lufs: float = -14.0) -> Dict[str, Any]:
 # Voice Isolation State (Timeline)
 # ============================================================
 
-@mcp.tool()
+@mcp.tool(annotations=READ_ONLY)
 def get_voice_isolation_state(track_index: int = None) -> Dict[str, Any]:
     """Get Voice Isolation state for a track or timeline.
     
@@ -196,7 +197,7 @@ def get_voice_isolation_state(track_index: int = None) -> Dict[str, Any]:
         return {"error": f"Error: {e}"}
 
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def set_voice_isolation_state(track_index: int, enabled: bool, 
                               amount: int = 50) -> str:
     """Set Voice Isolation state for a track.
@@ -237,7 +238,7 @@ def set_voice_isolation_state(track_index: int, enabled: bool,
 # Audio Mapping
 # ============================================================
 
-@mcp.tool()
+@mcp.tool(annotations=READ_ONLY)
 def get_timeline_item_audio_mapping(clip_name: str) -> Dict[str, Any]:
     """Get audio mapping for a timeline item.
     
@@ -279,7 +280,7 @@ def get_timeline_item_audio_mapping(clip_name: str) -> Dict[str, Any]:
 # Phase 2.5: Fairlight Extensions
 # ============================================================
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def insert_audio_at_playhead(media_path: str, track_index: int = 1) -> str:
     """Insert audio from a file at the current playhead position.
     

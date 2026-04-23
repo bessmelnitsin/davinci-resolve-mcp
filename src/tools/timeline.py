@@ -10,25 +10,31 @@ from src.api.media_operations import append_clips_to_timeline as append_impl
 from src.api.media_operations import create_timeline_from_clips as create_from_clips_impl
 from src.api import timeline_operations
 
-@mcp.tool()
-@mcp.resource("resolve://timelines")
+from src.utils.safety import READ_ONLY, SAFE_WRITE, DESTRUCTIVE
+@mcp.tool(annotations=READ_ONLY)
 def list_timelines() -> List[str]:
     """List all timelines in the current project."""
     resolve = get_resolve()
     if resolve is None: return ["Error: Not connected"]
-    
+
     pm = resolve.GetProjectManager()
     if not pm: return ["Error: No Project Manager"]
-    
+
     project = pm.GetCurrentProject()
     if not project: return ["Error: No project open"]
-    
+
     count = project.GetTimelineCount()
     timelines = []
     for i in range(1, count + 1):
         tl = project.GetTimelineByIndex(i)
         if tl: timelines.append(tl.GetName())
     return timelines
+
+
+@mcp.resource("resolve://timelines")
+def list_timelines_resource() -> List[str]:
+    """List all timelines in the current project (resource)."""
+    return list_timelines()
 
 @mcp.resource("resolve://current-timeline")
 def get_current_timeline() -> Dict[str, Any]:
@@ -61,7 +67,7 @@ def get_timeline_tracks(timeline_name: str = None) -> Dict[str, Any]:
     resolve = get_resolve()
     return timeline_operations.get_timeline_tracks(resolve, timeline_name)
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def create_timeline(name: str) -> str:
     """Create a new timeline."""
     resolve = get_resolve()
@@ -78,7 +84,7 @@ def create_timeline(name: str) -> str:
         return f"Created timeline '{name}'"
     return f"Failed to create timeline '{name}'"
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def create_empty_timeline(name: str, 
                        frame_rate: str = None, 
                        resolution_width: int = None, 
@@ -94,13 +100,13 @@ def create_empty_timeline(name: str,
         video_tracks, audio_tracks
     )
 
-@mcp.tool()
+@mcp.tool(annotations=DESTRUCTIVE)
 def delete_timeline(name: str) -> str:
     """Delete a timeline by name."""
     resolve = get_resolve()
     return timeline_operations.delete_timeline(resolve, name)
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def set_current_timeline(name: str) -> str:
     """Switch to a timeline by name."""
     resolve = get_resolve()
@@ -120,7 +126,7 @@ def set_current_timeline(name: str) -> str:
                 return f"Switched to '{name}'"
     return f"Timeline '{name}' not found"
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def add_marker(frame: int = None, color: str = "Blue", note: str = "") -> str:
     """Add a marker to the timeline."""
     resolve = get_resolve()
@@ -179,13 +185,13 @@ def list_timeline_clips() -> List[Dict[str, Any]]:
 
 
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def append_clips_to_timeline(clip_names: List[str], timeline_name: str = None) -> str:
     """Append a list of clips (by name) to the timeline."""
     resolve = get_resolve()
     return append_impl(resolve, clip_names, timeline_name)
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def create_timeline_from_clips(name: str, clip_names: List[str]) -> str:
     """Create a new timeline containing the specified clips."""
     resolve = get_resolve()
@@ -204,13 +210,13 @@ def get_timeline_item_properties(item_id: str) -> Dict[str, Any]:
     resolve = get_resolve()
     return timeline_operations.get_timeline_item_properties(resolve, item_id)
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def set_timeline_item_transform(item_id: str, property_name: str, value: float) -> str:
     """Set a transform property (Pan, Tilt, ZoomX, ZoomY, Rotation, Pitch, Yaw, AnchorPointX, AnchorPointY)."""
     resolve = get_resolve()
     return timeline_operations.set_timeline_item_property(resolve, item_id, property_name, value)
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def set_timeline_item_crop(item_id: str, crop_type: str, value: float) -> str:
     """Set crop property specified by type (left, right, top, bottom)."""
     resolve = get_resolve()
@@ -227,7 +233,7 @@ def set_timeline_item_crop(item_id: str, crop_type: str, value: float) -> str:
 
 # --- Timeline Export/Import ---
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def export_timeline(file_path: str, export_type: str = "edl", 
                     export_subtype: str = "none", timeline_name: str = None) -> str:
     """Export timeline to file (EDL, XML, AAF, FCPXML, etc).
@@ -243,7 +249,7 @@ def export_timeline(file_path: str, export_type: str = "edl",
     return timeline_operations.export_timeline(resolve, file_path, export_type, export_subtype, timeline_name)
 
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def import_timeline_from_file(file_path: str, timeline_name: str = None,
                                import_source_clips: bool = True, 
                                source_clips_path: str = None) -> str:
@@ -270,7 +276,7 @@ def get_timeline_markers(timeline_name: str = None) -> Dict[str, Any]:
     return timeline_operations.get_timeline_markers(resolve, timeline_name)
 
 
-@mcp.tool()
+@mcp.tool(annotations=DESTRUCTIVE)
 def delete_timeline_markers(color: str = "All", timeline_name: str = None) -> str:
     """Delete markers from a timeline.
     
@@ -284,7 +290,7 @@ def delete_timeline_markers(color: str = "All", timeline_name: str = None) -> st
 
 # --- Timeline Duplication ---
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def duplicate_timeline(new_name: str = None, timeline_name: str = None) -> str:
     """Duplicate a timeline.
     
@@ -300,7 +306,7 @@ def duplicate_timeline(new_name: str = None, timeline_name: str = None) -> str:
 # Phase 4.1-4.3: Timeline Track Management Tools
 # ============================================================
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def add_track(track_type: str, sub_track_type: str = None, 
               timeline_name: str = None) -> str:
     """Add a new track to the timeline.
@@ -314,7 +320,7 @@ def add_track(track_type: str, sub_track_type: str = None,
     return timeline_operations.add_track(resolve, track_type, sub_track_type, timeline_name)
 
 
-@mcp.tool()
+@mcp.tool(annotations=DESTRUCTIVE)
 def delete_track(track_type: str, track_index: int, timeline_name: str = None) -> str:
     """Delete a track from the timeline.
     
@@ -327,7 +333,7 @@ def delete_track(track_type: str, track_index: int, timeline_name: str = None) -
     return timeline_operations.delete_track(resolve, track_type, track_index, timeline_name)
 
 
-@mcp.tool()
+@mcp.tool(annotations=READ_ONLY)
 def get_track_name(track_type: str, track_index: int, timeline_name: str = None) -> Dict[str, Any]:
     """Get the name of a track.
     
@@ -339,7 +345,7 @@ def get_track_name(track_type: str, track_index: int, timeline_name: str = None)
     return timeline_operations.get_track_name(resolve, track_type, int(track_index), timeline_name)
 
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def set_track_name(track_type: str, track_index: int, name: str, 
                    timeline_name: str = None) -> str:
     """Set the name of a track.
@@ -353,7 +359,7 @@ def set_track_name(track_type: str, track_index: int, name: str,
     return timeline_operations.set_track_name(resolve, track_type, track_index, name, timeline_name)
 
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def set_track_enabled(track_type: str, track_index: int, enabled: bool,
                       timeline_name: str = None) -> str:
     """Enable or disable a track.
@@ -367,7 +373,7 @@ def set_track_enabled(track_type: str, track_index: int, enabled: bool,
     return timeline_operations.set_track_enabled(resolve, track_type, track_index, enabled, timeline_name)
 
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def set_track_locked(track_type: str, track_index: int, locked: bool,
                      timeline_name: str = None) -> str:
     """Lock or unlock a track.
@@ -381,7 +387,7 @@ def set_track_locked(track_type: str, track_index: int, locked: bool,
     return timeline_operations.set_track_locked(resolve, track_type, track_index, locked, timeline_name)
 
 
-@mcp.tool()
+@mcp.tool(annotations=READ_ONLY)
 def get_track_status(track_type: str, track_index: int, timeline_name: str = None) -> Dict[str, Any]:
     """Get track enabled/locked status.
     
@@ -395,14 +401,14 @@ def get_track_status(track_type: str, track_index: int, timeline_name: str = Non
 
 # --- Timecode Tools ---
 
-@mcp.tool()
+@mcp.tool(annotations=READ_ONLY)
 def get_current_timecode(timeline_name: str = None) -> Dict[str, Any]:
     """Get current playhead timecode."""
     resolve = get_resolve()
     return timeline_operations.get_current_timecode(resolve, timeline_name)
 
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def set_current_timecode(timecode: str, timeline_name: str = None) -> str:
     """Set playhead to timecode.
     
@@ -415,7 +421,7 @@ def set_current_timecode(timecode: str, timeline_name: str = None) -> str:
 
 # --- Generator and Title Tools ---
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def insert_generator(generator_name: str, duration: int = None, 
                      timeline_name: str = None) -> str:
     """Insert a generator into the timeline.
@@ -428,7 +434,7 @@ def insert_generator(generator_name: str, duration: int = None,
     return timeline_operations.insert_generator(resolve, generator_name, duration, timeline_name)
 
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def insert_title(title_name: str, duration: int = None, 
                  timeline_name: str = None) -> str:
     """Insert a title into the timeline.
@@ -444,7 +450,7 @@ def insert_title(title_name: str, duration: int = None,
 # --- Special Timeline Operations ---
 
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def create_compound_clip(clip_info: Dict[str, Any] = None,
                          timeline_name: str = None) -> str:
     """Create a compound clip from selected items."""
@@ -452,21 +458,21 @@ def create_compound_clip(clip_info: Dict[str, Any] = None,
     return timeline_operations.create_compound_clip(resolve, clip_info, timeline_name)
 
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def create_fusion_clip(timeline_name: str = None) -> str:
     """Create a Fusion clip from selected items."""
     resolve = get_resolve()
     return timeline_operations.create_fusion_clip(resolve, timeline_name)
 
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def detect_scene_cuts(timeline_name: str = None) -> str:
     """Detect scene cuts in the timeline."""
     resolve = get_resolve()
     return timeline_operations.detect_scene_cuts(resolve, timeline_name)
 
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def rename_timeline(new_name: str, timeline_name: str = None) -> str:
     """Rename a timeline.
     
@@ -478,7 +484,7 @@ def rename_timeline(new_name: str, timeline_name: str = None) -> str:
     return timeline_operations.rename_timeline(resolve, new_name, timeline_name)
 
 
-@mcp.tool()
+@mcp.tool(annotations=READ_ONLY)
 def get_timeline_id(timeline_name: str = None) -> Dict[str, Any]:
     """Get the unique ID of a timeline."""
     resolve = get_resolve()
@@ -489,7 +495,7 @@ def get_timeline_id(timeline_name: str = None) -> Dict[str, Any]:
 # Phase 5: TimelineItem Extended Tools
 # ============================================================
 
-@mcp.tool()
+@mcp.tool(annotations=READ_ONLY)
 def get_timeline_item_property(clip_name: str, property_key: str = None,
                                timeline_name: str = None) -> Dict[str, Any]:
     """Get TimelineItem property or all properties.
@@ -502,7 +508,7 @@ def get_timeline_item_property(clip_name: str, property_key: str = None,
     return timeline_operations.get_timeline_item_property(resolve, clip_name, property_key, timeline_name)
 
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def set_timeline_item_property(clip_name: str, property_key: str, 
                                property_value: float, timeline_name: str = None) -> str:
     """Set a TimelineItem property (Pan, Tilt, ZoomX, ZoomY, CropLeft, etc.)."""
@@ -510,14 +516,14 @@ def set_timeline_item_property(clip_name: str, property_key: str,
     return timeline_operations.set_timeline_item_property(resolve, clip_name, property_key, property_value, timeline_name)
 
 
-@mcp.tool()
+@mcp.tool(annotations=READ_ONLY)
 def get_timeline_item_info(clip_name: str, timeline_name: str = None) -> Dict[str, Any]:
     """Get detailed info about a timeline item."""
     resolve = get_resolve()
     return timeline_operations.get_timeline_item_info(resolve, clip_name, timeline_name)
 
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def set_timeline_item_enabled(clip_name: str, enabled: bool, 
                               timeline_name: str = None) -> str:
     """Enable or disable a timeline item."""
@@ -527,7 +533,7 @@ def set_timeline_item_enabled(clip_name: str, enabled: bool,
 
 # --- Color Versions ---
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def add_color_version(clip_name: str, version_name: str, 
                       version_type: int = 0, timeline_name: str = None) -> str:
     """Add a new color version to a clip (0=local, 1=remote)."""
@@ -535,7 +541,7 @@ def add_color_version(clip_name: str, version_name: str,
     return timeline_operations.add_color_version(resolve, clip_name, version_name, version_type, timeline_name)
 
 
-@mcp.tool()
+@mcp.tool(annotations=READ_ONLY)
 def get_color_versions(clip_name: str, version_type: int = 0, 
                        timeline_name: str = None) -> Dict[str, Any]:
     """Get list of color versions for a clip."""
@@ -543,7 +549,7 @@ def get_color_versions(clip_name: str, version_type: int = 0,
     return timeline_operations.get_color_versions(resolve, clip_name, version_type, timeline_name)
 
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def load_color_version(clip_name: str, version_name: str,
                        version_type: int = 0, timeline_name: str = None) -> str:
     """Load a color version by name."""
@@ -553,21 +559,21 @@ def load_color_version(clip_name: str, version_name: str,
 
 # --- Effects/Processing ---
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def stabilize_clip(clip_name: str, timeline_name: str = None) -> str:
     """Stabilize a timeline clip."""
     resolve = get_resolve()
     return timeline_operations.stabilize_clip(resolve, clip_name, timeline_name)
 
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def smart_reframe_clip(clip_name: str, timeline_name: str = None) -> str:
     """Apply Smart Reframe to a clip."""
     resolve = get_resolve()
     return timeline_operations.smart_reframe_clip(resolve, clip_name, timeline_name)
 
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def create_magic_mask(clip_name: str, mode: str = "F", 
                       timeline_name: str = None) -> str:
     """Create Magic Mask on a clip (mode: F/B/BI)."""
@@ -577,7 +583,7 @@ def create_magic_mask(clip_name: str, mode: str = "F",
 
 # --- Markers/Flags/Color ---
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def add_timeline_item_marker(clip_name: str, frame: int, color: str = "Blue",
                              name: str = "", note: str = "", 
                              timeline_name: str = None) -> str:
@@ -586,14 +592,14 @@ def add_timeline_item_marker(clip_name: str, frame: int, color: str = "Blue",
     return timeline_operations.add_timeline_item_marker(resolve, clip_name, frame, color, name, note, 1, timeline_name)
 
 
-@mcp.tool()
+@mcp.tool(annotations=READ_ONLY)
 def get_timeline_item_markers(clip_name: str, timeline_name: str = None) -> Dict[str, Any]:
     """Get markers from a timeline item."""
     resolve = get_resolve()
     return timeline_operations.get_timeline_item_markers(resolve, clip_name, timeline_name)
 
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def set_timeline_item_color(clip_name: str, color: str, 
                             timeline_name: str = None) -> str:
     """Set the color label of a timeline item."""
@@ -601,7 +607,7 @@ def set_timeline_item_color(clip_name: str, color: str,
     return timeline_operations.set_timeline_item_color(resolve, clip_name, color, timeline_name)
 
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def add_timeline_item_flag(clip_name: str, color: str, 
                            timeline_name: str = None) -> str:
     """Add a flag to a timeline item."""
@@ -611,7 +617,7 @@ def add_timeline_item_flag(clip_name: str, color: str,
 
 # --- Cache/Grades ---
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def set_color_output_cache(clip_name: str, enabled: bool, 
                            timeline_name: str = None) -> str:
     """Enable/disable color output cache for a clip."""
@@ -619,7 +625,7 @@ def set_color_output_cache(clip_name: str, enabled: bool,
     return timeline_operations.set_color_output_cache(resolve, clip_name, enabled, timeline_name)
 
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def copy_grades(source_clip: str, target_clips: List[str], 
                 timeline_name: str = None) -> str:
     """Copy grades from source clip to target clips."""
@@ -627,7 +633,7 @@ def copy_grades(source_clip: str, target_clips: List[str],
     return timeline_operations.copy_grades(resolve, source_clip, target_clips, timeline_name)
 
 
-@mcp.tool()
+@mcp.tool(annotations=READ_ONLY)
 def get_linked_items(clip_name: str, timeline_name: str = None) -> Dict[str, Any]:
     """Get linked items for a timeline item."""
     resolve = get_resolve()
@@ -638,7 +644,7 @@ def get_linked_items(clip_name: str, timeline_name: str = None) -> Dict[str, Any
 # Phase 1.3: Critical Timeline Extensions
 # ============================================================
 
-@mcp.tool()
+@mcp.tool(annotations=DESTRUCTIVE)
 def delete_timeline_clips(clip_names: List[str], ripple: bool = False,
                           timeline_name: str = None) -> str:
     """Delete clips from the timeline.
@@ -695,7 +701,7 @@ def delete_timeline_clips(clip_names: List[str], ripple: bool = False,
         return f"Error deleting clips: {e}"
 
 
-@mcp.tool()
+@mcp.tool(annotations=READ_ONLY)
 def get_timeline_setting(setting_name: str, timeline_name: str = None) -> str:
     """Get a timeline setting value.
     
@@ -739,7 +745,7 @@ def get_timeline_setting(setting_name: str, timeline_name: str = None) -> str:
         return f"Error getting setting: {e}"
 
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def set_timeline_setting(setting_name: str, setting_value: str, 
                          timeline_name: str = None) -> str:
     """Set a timeline setting value.
@@ -782,7 +788,7 @@ def set_timeline_setting(setting_name: str, setting_value: str,
         return f"Error setting value: {e}"
 
 
-@mcp.tool()
+@mcp.tool(annotations=READ_ONLY)
 def get_current_video_item(timeline_name: str = None) -> Dict[str, Any]:
     """Get the current video item at playhead position.
     
@@ -828,7 +834,7 @@ def get_current_video_item(timeline_name: str = None) -> Dict[str, Any]:
         return {"error": f"Error getting current item: {e}"}
 
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def create_subtitles_from_audio(language: str = "auto",
                                 preset: str = "default",
                                 chars_per_line: int = 42,
@@ -874,7 +880,7 @@ def create_subtitles_from_audio(language: str = "auto",
     try:
         # Build settings dict using Resolve constants if available
         settings = {}
-        
+
         # Map language string to constant
         lang_map = {
             "auto": "AUTO_CAPTION_AUTO",
@@ -889,7 +895,21 @@ def create_subtitles_from_audio(language: str = "auto",
             "korean": "AUTO_CAPTION_KOREAN",
             "mandarin": "AUTO_CAPTION_MANDARIN_SIMPLIFIED",
         }
-        
+
+        # Wire language parameter into settings
+        lang_key = language.lower() if language else "auto"
+        if lang_key in lang_map:
+            settings["language"] = lang_map[lang_key]
+
+        if preset and preset != "default":
+            settings["preset"] = preset
+        if chars_per_line != 42:
+            settings["charsPerLine"] = chars_per_line
+        if line_break and line_break != "single":
+            settings["lineBreak"] = line_break
+        if gap > 0:
+            settings["gap"] = gap
+
         # Call CreateSubtitlesFromAudio
         result = timeline.CreateSubtitlesFromAudio(settings if settings else None)
         if result:
@@ -901,7 +921,7 @@ def create_subtitles_from_audio(language: str = "auto",
         return f"Error creating subtitles: {e}"
 
 
-@mcp.tool()
+@mcp.tool(annotations=READ_ONLY)
 def get_timeline_bounds(timeline_name: str = None) -> Dict[str, Any]:
     """Get start and end frames of the timeline.
     
@@ -948,7 +968,7 @@ def get_timeline_bounds(timeline_name: str = None) -> Dict[str, Any]:
         return {"error": f"Error getting timeline bounds: {e}"}
 
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def set_timeline_start_timecode(timecode: str, timeline_name: str = None) -> str:
     """Set the start timecode of the timeline.
     
@@ -1028,7 +1048,7 @@ def _find_timeline_item(resolve, clip_name: str, timeline_name: str = None):
     return None, timeline, f"Clip '{clip_name}' not found in timeline"
 
 
-@mcp.tool()
+@mcp.tool(annotations=READ_ONLY)
 def get_timeline_item_duration(clip_name: str, timeline_name: str = None) -> Dict[str, Any]:
     """Get the duration of a timeline item in frames.
     
@@ -1055,7 +1075,7 @@ def get_timeline_item_duration(clip_name: str, timeline_name: str = None) -> Dic
         return {"error": f"Error getting duration: {e}"}
 
 
-@mcp.tool()
+@mcp.tool(annotations=READ_ONLY)
 def get_timeline_item_start_end(clip_name: str, timeline_name: str = None) -> Dict[str, Any]:
     """Get the start and end positions of a timeline item.
     
@@ -1082,9 +1102,9 @@ def get_timeline_item_start_end(clip_name: str, timeline_name: str = None) -> Di
         try:
             source_start = item.GetSourceStartFrame()
             source_end = item.GetSourceEndFrame()
-        except:
+        except Exception:
             pass
-        
+
         result = {
             "clip_name": clip_name,
             "start_frame": start,
@@ -1102,7 +1122,7 @@ def get_timeline_item_start_end(clip_name: str, timeline_name: str = None) -> Di
         return {"error": f"Error getting position: {e}"}
 
 
-@mcp.tool()
+@mcp.tool(annotations=READ_ONLY)
 def get_timeline_item_media_pool_item(clip_name: str, 
                                        timeline_name: str = None) -> Dict[str, Any]:
     """Get the MediaPoolItem associated with a timeline item.
@@ -1135,7 +1155,7 @@ def get_timeline_item_media_pool_item(clip_name: str,
         return {"error": f"Error getting MediaPoolItem: {e}"}
 
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def export_timeline_item_lut(clip_name: str, output_path: str,
                               lut_type: int = 0,
                               timeline_name: str = None) -> str:
@@ -1167,7 +1187,7 @@ def export_timeline_item_lut(clip_name: str, output_path: str,
         return f"Error exporting LUT: {e}"
 
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def set_cdl_values(clip_name: str, 
                    slope_r: float = 1.0, slope_g: float = 1.0, slope_b: float = 1.0,
                    offset_r: float = 0.0, offset_g: float = 0.0, offset_b: float = 0.0,
@@ -1211,7 +1231,7 @@ def set_cdl_values(clip_name: str,
         return f"Error setting CDL: {e}"
 
 
-@mcp.tool()
+@mcp.tool(annotations=READ_ONLY)
 def get_timeline_item_node_graph(clip_name: str, 
                                   timeline_name: str = None) -> Dict[str, Any]:
     """Get the node graph information for a timeline item.
@@ -1247,7 +1267,7 @@ def get_timeline_item_node_graph(clip_name: str,
                     node_info = {"index": i}
                     try:
                         node_info["label"] = graph.GetNodeLabel(i)
-                    except:
+                    except Exception:
                         pass
                     nodes.append(node_info)
                 
@@ -1267,7 +1287,7 @@ def get_timeline_item_node_graph(clip_name: str,
 # Phase 4.1: Timeline Marker CustomData Tools
 # ============================================================
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def add_timeline_marker_with_custom_data(frame: int, color: str = "Blue",
                                           name: str = "", note: str = "",
                                           duration: int = 1, custom_data: str = "",
@@ -1291,7 +1311,7 @@ def add_timeline_marker_with_custom_data(frame: int, color: str = "Blue",
     )
 
 
-@mcp.tool()
+@mcp.tool(annotations=READ_ONLY)
 def get_timeline_marker_by_custom_data(custom_data: str,
                                         timeline_name: str = None) -> Dict[str, Any]:
     """Find a timeline marker by its custom data string.
@@ -1306,7 +1326,7 @@ def get_timeline_marker_by_custom_data(custom_data: str,
     )
 
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def update_timeline_marker_custom_data(frame: int, custom_data: str,
                                          timeline_name: str = None) -> str:
     """Update custom data for a timeline marker at a specific frame.
@@ -1322,7 +1342,7 @@ def update_timeline_marker_custom_data(frame: int, custom_data: str,
     )
 
 
-@mcp.tool()
+@mcp.tool(annotations=READ_ONLY)
 def get_timeline_marker_custom_data(frame: int,
                                      timeline_name: str = None) -> Dict[str, Any]:
     """Get custom data from a timeline marker at a specific frame.
@@ -1337,7 +1357,7 @@ def get_timeline_marker_custom_data(frame: int,
     )
 
 
-@mcp.tool()
+@mcp.tool(annotations=DESTRUCTIVE)
 def delete_timeline_marker_by_custom_data(custom_data: str,
                                            timeline_name: str = None) -> str:
     """Delete a timeline marker by its custom data string.
@@ -1356,7 +1376,7 @@ def delete_timeline_marker_by_custom_data(custom_data: str,
 # Phase 4.1: Timeline Clip Linking Tools
 # ============================================================
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def set_clips_linked(clip_names: List[str], linked: bool,
                      timeline_name: str = None) -> str:
     """Link or unlink timeline clips.
@@ -1378,7 +1398,7 @@ def set_clips_linked(clip_names: List[str], linked: bool,
 # Phase 4.1: Timeline Stills Tools
 # ============================================================
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def grab_timeline_still(timeline_name: str = None) -> Dict[str, Any]:
     """Grab a still frame from the current playhead position.
     
@@ -1392,7 +1412,7 @@ def grab_timeline_still(timeline_name: str = None) -> Dict[str, Any]:
     return timeline_operations.grab_timeline_still(resolve, timeline_name)
 
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def grab_all_timeline_stills(still_frame_source: int = 1,
                               timeline_name: str = None) -> Dict[str, Any]:
     """Grab stills from all clips in the timeline.
@@ -1413,7 +1433,7 @@ def grab_all_timeline_stills(still_frame_source: int = 1,
 # Phase 4.1: Timeline Stereo Conversion Tool
 # ============================================================
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def convert_timeline_to_stereo(timeline_name: str = None) -> str:
     """Convert a timeline to stereo 3D format.
     
@@ -1430,7 +1450,7 @@ def convert_timeline_to_stereo(timeline_name: str = None) -> str:
 # Phase 4.2: TimelineItem Offset Tools
 # ============================================================
 
-@mcp.tool()
+@mcp.tool(annotations=READ_ONLY)
 def get_timeline_item_left_offset(clip_name: str,
                                    timeline_name: str = None) -> Dict[str, Any]:
     """Get the left offset (handle) of a timeline item in frames.
@@ -1447,7 +1467,7 @@ def get_timeline_item_left_offset(clip_name: str,
     )
 
 
-@mcp.tool()
+@mcp.tool(annotations=READ_ONLY)
 def get_timeline_item_right_offset(clip_name: str,
                                     timeline_name: str = None) -> Dict[str, Any]:
     """Get the right offset (handle) of a timeline item in frames.
@@ -1468,7 +1488,7 @@ def get_timeline_item_right_offset(clip_name: str,
 # Phase 4.2: TimelineItem Take Management Tools  
 # ============================================================
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def add_take(clip_name: str, media_pool_item_name: str,
              start_frame: int = None, end_frame: int = None,
              timeline_name: str = None) -> str:
@@ -1489,7 +1509,7 @@ def add_take(clip_name: str, media_pool_item_name: str,
     )
 
 
-@mcp.tool()
+@mcp.tool(annotations=READ_ONLY)
 def get_takes_count(clip_name: str,
                     timeline_name: str = None) -> Dict[str, Any]:
     """Get the number of takes for a timeline item.
@@ -1502,7 +1522,7 @@ def get_takes_count(clip_name: str,
     return timeline_operations.get_takes_count(resolve, clip_name, timeline_name)
 
 
-@mcp.tool()
+@mcp.tool(annotations=READ_ONLY)
 def get_take_by_index(clip_name: str, take_index: int,
                       timeline_name: str = None) -> Dict[str, Any]:
     """Get information about a specific take by its index.
@@ -1518,7 +1538,7 @@ def get_take_by_index(clip_name: str, take_index: int,
     )
 
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def select_take_by_index(clip_name: str, take_index: int,
                          timeline_name: str = None) -> str:
     """Select a take by index to make it the active take.
@@ -1534,7 +1554,7 @@ def select_take_by_index(clip_name: str, take_index: int,
     )
 
 
-@mcp.tool()
+@mcp.tool(annotations=READ_ONLY)
 def get_selected_take_index(clip_name: str,
                             timeline_name: str = None) -> Dict[str, Any]:
     """Get the currently selected take index.
@@ -1549,7 +1569,7 @@ def get_selected_take_index(clip_name: str,
     )
 
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def finalize_take(clip_name: str,
                   timeline_name: str = None) -> str:
     """Finalize the current take, removing all other takes.
@@ -1564,7 +1584,7 @@ def finalize_take(clip_name: str,
     return timeline_operations.finalize_take(resolve, clip_name, timeline_name)
 
 
-@mcp.tool()
+@mcp.tool(annotations=DESTRUCTIVE)
 def delete_take_by_index(clip_name: str, take_index: int,
                          timeline_name: str = None) -> str:
     """Delete a specific take by its index.
@@ -1584,7 +1604,7 @@ def delete_take_by_index(clip_name: str, take_index: int,
 # Phase 4.2: TimelineItem Magic Mask and Sidecar Tools
 # ============================================================
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def regenerate_magic_mask(clip_name: str,
                           timeline_name: str = None) -> str:
     """Regenerate Magic Mask for a timeline item.
@@ -1602,7 +1622,7 @@ def regenerate_magic_mask(clip_name: str,
     )
 
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def update_sidecar(clip_name: str,
                    timeline_name: str = None) -> str:
     """Update sidecar file for BRAW/R3D camera raw clips.
@@ -1621,7 +1641,7 @@ def update_sidecar(clip_name: str,
 # Phase 4.2: TimelineItem Stereo Tools (Optional)
 # ============================================================
 
-@mcp.tool()
+@mcp.tool(annotations=READ_ONLY)
 def get_stereo_convergence_values(clip_name: str,
                                    timeline_name: str = None) -> Dict[str, Any]:
     """Get stereo convergence values for a 3D timeline item.
@@ -1636,7 +1656,7 @@ def get_stereo_convergence_values(clip_name: str,
     )
 
 
-@mcp.tool()
+@mcp.tool(annotations=READ_ONLY)
 def get_stereo_left_floating_window_params(clip_name: str,
                                             timeline_name: str = None) -> Dict[str, Any]:
     """Get stereo left eye floating window parameters.
@@ -1651,7 +1671,7 @@ def get_stereo_left_floating_window_params(clip_name: str,
     )
 
 
-@mcp.tool()
+@mcp.tool(annotations=READ_ONLY)
 def get_stereo_right_floating_window_params(clip_name: str,
                                              timeline_name: str = None) -> Dict[str, Any]:
     """Get stereo right eye floating window parameters.
@@ -1670,7 +1690,7 @@ def get_stereo_right_floating_window_params(clip_name: str,
 # Full Coverage: Additional Timeline Tools
 # ============================================================
 
-@mcp.tool()
+@mcp.tool(annotations=READ_ONLY)
 def get_current_clip_thumbnail(timeline_name: str = None) -> Dict[str, Any]:
     """Get thumbnail image data for the current clip in Color page.
     
@@ -1683,7 +1703,7 @@ def get_current_clip_thumbnail(timeline_name: str = None) -> Dict[str, Any]:
     return timeline_operations.get_current_clip_thumbnail(resolve, timeline_name)
 
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def analyze_dolby_vision(timeline_name: str = None,
                           clip_names: List[str] = None,
                           blend_shots: bool = False) -> str:
@@ -1702,7 +1722,7 @@ def analyze_dolby_vision(timeline_name: str = None,
     )
 
 
-@mcp.tool()
+@mcp.tool(annotations=READ_ONLY)
 def get_timeline_mediapool_item(timeline_name: str = None) -> Dict[str, Any]:
     """Get the MediaPoolItem corresponding to the timeline.
     
@@ -1713,7 +1733,7 @@ def get_timeline_mediapool_item(timeline_name: str = None) -> Dict[str, Any]:
     return timeline_operations.get_timeline_mediapool_item(resolve, timeline_name)
 
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def export_lut_from_clip(clip_name: str, export_path: str,
                           export_type: int = 0,
                           timeline_name: str = None) -> str:
@@ -1731,7 +1751,7 @@ def export_lut_from_clip(clip_name: str, export_path: str,
     )
 
 
-@mcp.tool()
+@mcp.tool(annotations=READ_ONLY)
 def get_track_type_and_index(clip_name: str, timeline_name: str = None) -> Dict[str, Any]:
     """Get the track type and index for a timeline item.
     
@@ -1743,7 +1763,7 @@ def get_track_type_and_index(clip_name: str, timeline_name: str = None) -> Dict[
     return timeline_operations.get_track_type_and_index(resolve, clip_name, timeline_name)
 
 
-@mcp.tool()
+@mcp.tool(annotations=READ_ONLY)
 def get_source_audio_channel_mapping(clip_name: str, timeline_name: str = None) -> Dict[str, Any]:
     """Get source audio channel mapping for a timeline item.
     
@@ -1755,7 +1775,7 @@ def get_source_audio_channel_mapping(clip_name: str, timeline_name: str = None) 
     return timeline_operations.get_source_audio_channel_mapping(resolve, clip_name, timeline_name)
 
 
-@mcp.tool()
+@mcp.tool(annotations=READ_ONLY)
 def get_clip_mediapool_item(clip_name: str, timeline_name: str = None) -> Dict[str, Any]:
     """Get MediaPoolItem for a timeline clip.
     
@@ -1771,14 +1791,14 @@ def get_clip_mediapool_item(clip_name: str, timeline_name: str = None) -> Dict[s
 # Phase 2: Timeline Mark In/Out & Track Tools
 # ============================================================
 
-@mcp.tool()
+@mcp.tool(annotations=READ_ONLY)
 def get_timeline_mark_in_out(timeline_name: str = None) -> Dict[str, Any]:
     """Get mark in/out points for the timeline."""
     resolve = get_resolve()
     return timeline_operations.get_timeline_mark_in_out(resolve, timeline_name)
 
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def set_timeline_mark_in_out(mark_in: int, mark_out: int, type: str = "all", timeline_name: str = None) -> str:
     """Set mark in/out points for the timeline.
 
@@ -1792,14 +1812,14 @@ def set_timeline_mark_in_out(mark_in: int, mark_out: int, type: str = "all", tim
     return timeline_operations.set_timeline_mark_in_out(resolve, mark_in, mark_out, type, timeline_name)
 
 
-@mcp.tool()
+@mcp.tool(annotations=DESTRUCTIVE)
 def clear_timeline_mark_in_out(type: str = "all", timeline_name: str = None) -> str:
     """Clear mark in/out points for the timeline."""
     resolve = get_resolve()
     return timeline_operations.clear_timeline_mark_in_out(resolve, type, timeline_name)
 
 
-@mcp.tool()
+@mcp.tool(annotations=READ_ONLY)
 def get_track_sub_type(track_type: str, track_index: int, timeline_name: str = None) -> str:
     """Get the sub-type (format) of an audio track (e.g. 'mono', 'stereo', '5.1').
 
@@ -1816,7 +1836,7 @@ def get_track_sub_type(track_type: str, track_index: int, timeline_name: str = N
 # Phase 2b: TimelineItem Tools
 # ============================================================
 
-@mcp.tool()
+@mcp.tool(annotations=READ_ONLY)
 def get_timeline_item_source_start_end(item_index: int, track_type: str = "video", track_index: int = 1, timeline_name: str = None) -> Dict[str, Any]:
     """Get source start and end frames for a timeline item.
     
@@ -1829,7 +1849,7 @@ def get_timeline_item_source_start_end(item_index: int, track_type: str = "video
     resolve = get_resolve()
     return timeline_operations.get_timeline_item_source_start_end(resolve, None, item_index, track_type, track_index, timeline_name)
 
-@mcp.tool()
+@mcp.tool(annotations=READ_ONLY)
 def get_timeline_item_fusion_comp(comp_index: int, item_index: int, track_type: str = "video", track_index: int = 1) -> Dict[str, Any]:
     """Get Fusion composition by index from a timeline item.
     
@@ -1840,13 +1860,13 @@ def get_timeline_item_fusion_comp(comp_index: int, item_index: int, track_type: 
     resolve = get_resolve()
     return timeline_operations.get_timeline_item_fusion_comp_by_index(resolve, comp_index, item_index, track_type, track_index)
 
-@mcp.tool()
+@mcp.tool(annotations=DESTRUCTIVE)
 def delete_timeline_item_take(take_index: int, item_index: int, track_type: str = "video", track_index: int = 1) -> str:
     """Delete a take from a timeline item."""
     resolve = get_resolve()
     return timeline_operations.delete_take_by_index(resolve, take_index, item_index, track_type, track_index)
 
-@mcp.tool()
+@mcp.tool(annotations=READ_ONLY)
 def get_timeline_item_current_version(item_index: int, track_type: str = "video", track_index: int = 1) -> Dict[str, Any]:
     """Get the current version of the timeline item."""
     resolve = get_resolve()

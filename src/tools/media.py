@@ -23,7 +23,8 @@ from src.api.media_operations import (
     get_all_media_pool_folders
 )
 
-@mcp.tool()
+from src.utils.safety import READ_ONLY, SAFE_WRITE, DESTRUCTIVE
+@mcp.tool(annotations=SAFE_WRITE)
 def export_folder(folder_name: str, export_path: str, export_type: str = "DRB") -> str:
     """Export a folder to a DRB file."""
     resolve = get_resolve()
@@ -62,7 +63,7 @@ def export_folder(folder_name: str, export_path: str, export_type: str = "DRB") 
     except Exception as e:
         return f"Error: {e}"
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def transcribe_folder_audio(folder_name: str, language: str = "en-US") -> str:
     """Transcribe audio for all clips in a folder (Native)."""
     resolve = get_resolve()
@@ -94,39 +95,39 @@ def transcribe_folder_audio(folder_name: str, language: str = "en-US") -> str:
         return f"Error: {e}"
 
 
-@mcp.tool()
+@mcp.tool(annotations=DESTRUCTIVE)
 def delete_media(clip_name: str) -> str:
     """Delete a media clip from the media pool by name."""
     resolve = get_resolve()
     return delete_media_impl(resolve, clip_name)
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def move_media_to_bin(clip_name: str, bin_name: str) -> str:
     """Move a media clip to a specific bin."""
     resolve = get_resolve()
     return move_media_impl(resolve, clip_name, bin_name)
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def auto_sync_audio(clip_names: List[str], sync_method: str = "waveform", 
                    append_mode: bool = False, target_bin: str = None) -> str:
     """Sync audio between clips."""
     resolve = get_resolve()
     return auto_sync_impl(resolve, clip_names, sync_method, append_mode, target_bin)
 
-@mcp.tool()
+@mcp.tool(annotations=DESTRUCTIVE)
 def unlink_clips(clip_names: List[str]) -> str:
     """Unlink specified clips."""
     resolve = get_resolve()
     return unlink_clips_impl(resolve, clip_names)
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def relink_clips(clip_names: List[str], media_paths: List[str] = None, 
                 folder_path: str = None, recursive: bool = False) -> str:
     """Relink specified clips to their media files."""
     resolve = get_resolve()
     return relink_clips_impl(resolve, clip_names, media_paths, folder_path, recursive)
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def create_sub_clip(clip_name: str, start_frame: int, end_frame: int, 
                    sub_clip_name: str = None, bin_name: str = None) -> str:
     """Create a subclip using in and out points."""
@@ -145,7 +146,7 @@ def get_media_pool_bin_contents(bin_name: str) -> List[Dict[str, Any]]:
     resolve = get_resolve()
     return get_bin_contents_impl(resolve, bin_name)
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def link_proxy_media(clip_name: str, proxy_file_path: str) -> str:
     """Link a proxy media file to a clip."""
     resolve = get_resolve()
@@ -177,7 +178,7 @@ def link_proxy_media(clip_name: str, proxy_file_path: str) -> str:
     except Exception as e:
         return f"Error: {e}"
 
-@mcp.tool()
+@mcp.tool(annotations=DESTRUCTIVE)
 def unlink_proxy_media(clip_name: str) -> str:
     """Unlink proxy media from a clip."""
     resolve = get_resolve()
@@ -202,7 +203,7 @@ def unlink_proxy_media(clip_name: str) -> str:
     except Exception as e:
         return f"Error: {e}"
 
-@mcp.tool()
+@mcp.tool(annotations=DESTRUCTIVE)
 def replace_clip(clip_name: str, replacement_path: str) -> str:
     """Replace a clip with another media file."""
     resolve = get_resolve()
@@ -227,7 +228,7 @@ def replace_clip(clip_name: str, replacement_path: str) -> str:
     except Exception as e:
         return f"Error: {e}"
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def transcribe_audio_native(clip_name: str, language: str = "en-US") -> str:
     """Transcribe audio for a clip using DaVinci Native AI."""
     resolve = get_resolve()
@@ -252,7 +253,7 @@ def transcribe_audio_native(clip_name: str, language: str = "en-US") -> str:
     except Exception as e:
         return f"Error: {e}"
 
-@mcp.tool()
+@mcp.tool(annotations=DESTRUCTIVE)
 def clear_transcription_native(clip_name: str) -> str:
     """Clear native audio transcription for a clip."""
     resolve = get_resolve()
@@ -277,31 +278,59 @@ def clear_transcription_native(clip_name: str) -> str:
     except Exception as e:
         return f"Error: {e}"
 
-@mcp.tool()
-def list_clips() -> List[Dict[str, Any]]:
-    """List all clips available in the Media Pool."""
+@mcp.tool(annotations=READ_ONLY)
+def list_media_pool_clips(limit: int = 100, offset: int = 0) -> Dict[str, Any]:
+    """List clips available in the Media Pool, with pagination.
+
+    Args:
+        limit: Maximum number of clips to return (1-1000, default 100).
+        offset: Number of clips to skip from the start (default 0).
+
+    Returns:
+        Dict with keys:
+            total: total clip count in the media pool.
+            offset, limit: echoed pagination parameters.
+            has_more: whether more clips exist beyond this page.
+            clips: list of clip info dicts for this page.
+    """
     resolve = get_resolve()
-    return list_clips_impl(resolve)
+    all_clips = list_clips_impl(resolve) or []
+    if not isinstance(all_clips, list):
+        # Underlying impl returned an error dict; surface it.
+        return {"error": str(all_clips), "clips": [], "total": 0,
+                "offset": offset, "limit": limit, "has_more": False}
+
+    # Clamp pagination args
+    limit = max(1, min(int(limit), 1000))
+    offset = max(0, int(offset))
+    page = all_clips[offset:offset + limit]
+    return {
+        "total": len(all_clips),
+        "offset": offset,
+        "limit": limit,
+        "has_more": offset + len(page) < len(all_clips),
+        "clips": page,
+    }
 
 @mcp.resource("resolve://media-pool-clips")
-def list_media_pool_clips() -> List[Dict[str, Any]]:
-    """List all clips in the media pool."""
+def list_media_pool_clips_resource() -> List[Dict[str, Any]]:
+    """Resource view: all clips in the media pool."""
     resolve = get_resolve()
     return list_clips_impl(resolve)
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def import_media(file_path: str) -> str:
     """Import media file into the media pool."""
     resolve = get_resolve()
     return import_media_impl(resolve, file_path)
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def create_bin(name: str) -> str:
     """Create a new bin in the media pool."""
     resolve = get_resolve()
     return create_bin_impl(resolve, name)
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def add_clip_to_timeline(clip_name: str, timeline_name: str = None) -> str:
     """Append a clip to the timeline."""
     resolve = get_resolve()
@@ -344,7 +373,7 @@ def get_clip_metadata(clip_name: str) -> Dict[str, Any]:
     return get_clip_metadata_impl(resolve, clip_name)
 
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def set_clip_metadata(clip_name: str, metadata: Dict[str, str]) -> str:
     """Set metadata for a media pool clip.
     
@@ -363,7 +392,7 @@ def get_clip_properties(clip_name: str) -> Dict[str, Any]:
     return get_clip_property_impl(resolve, clip_name)
 
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def set_clip_property(clip_name: str, property_name: str, value: str) -> str:
     """Set a property for a media pool clip."""
     resolve = get_resolve()
@@ -372,7 +401,7 @@ def set_clip_property(clip_name: str, property_name: str, value: str) -> str:
 
 # --- Clip Markers Tools ---
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def add_clip_marker(clip_name: str, frame: int, color: str = "Blue",
                     name: str = "", note: str = "", duration: int = 1) -> str:
     """Add a marker to a media pool clip.
@@ -396,7 +425,7 @@ def get_clip_markers(clip_name: str) -> Dict[str, Any]:
     return get_clip_markers_impl(resolve, clip_name)
 
 
-@mcp.tool()
+@mcp.tool(annotations=DESTRUCTIVE)
 def delete_clip_markers(clip_name: str, color: str = "All") -> str:
     """Delete markers from a clip by color.
     
@@ -408,7 +437,7 @@ def delete_clip_markers(clip_name: str, color: str = "All") -> str:
     return delete_clip_markers_impl(resolve, clip_name, color)
 
 
-@mcp.tool()
+@mcp.tool(annotations=DESTRUCTIVE)
 def delete_clip_marker_at_frame(clip_name: str, frame: int) -> str:
     """Delete a specific marker at a frame."""
     resolve = get_resolve()
@@ -417,7 +446,7 @@ def delete_clip_marker_at_frame(clip_name: str, frame: int) -> str:
 
 # --- Clip Flags Tools ---
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def add_clip_flag(clip_name: str, color: str) -> str:
     """Add a flag to a media pool clip.
     
@@ -436,7 +465,7 @@ def get_clip_flags(clip_name: str) -> Dict[str, Any]:
     return get_clip_flags_impl(resolve, clip_name)
 
 
-@mcp.tool()
+@mcp.tool(annotations=DESTRUCTIVE)
 def clear_clip_flags(clip_name: str, color: str = "All") -> str:
     """Clear flags from a clip.
     
@@ -457,7 +486,7 @@ def get_clip_color(clip_name: str) -> Dict[str, Any]:
     return get_clip_color_impl(resolve, clip_name)
 
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def set_clip_color(clip_name: str, color: str) -> str:
     """Set the clip color label.
     
@@ -470,7 +499,7 @@ def set_clip_color(clip_name: str, color: str) -> str:
     return set_clip_color_impl(resolve, clip_name, color)
 
 
-@mcp.tool()
+@mcp.tool(annotations=DESTRUCTIVE)
 def clear_clip_color(clip_name: str) -> str:
     """Clear the clip color label."""
     resolve = get_resolve()
@@ -479,7 +508,7 @@ def clear_clip_color(clip_name: str) -> str:
 
 # --- Clip Rename Tool ---
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def rename_clip(clip_name: str, new_name: str) -> str:
     """Rename a media pool clip."""
     resolve = get_resolve()
@@ -504,7 +533,7 @@ def get_clip_mark_in_out(clip_name: str) -> Dict[str, Any]:
     return get_mark_in_out_impl(resolve, clip_name)
 
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def set_clip_mark_in_out(clip_name: str, mark_in: int = None, mark_out: int = None) -> str:
     """Set mark in/out points for a clip.
     
@@ -517,7 +546,7 @@ def set_clip_mark_in_out(clip_name: str, mark_in: int = None, mark_out: int = No
     return set_mark_in_out_impl(resolve, clip_name, mark_in, mark_out)
 
 
-@mcp.tool()
+@mcp.tool(annotations=DESTRUCTIVE)
 def clear_clip_mark_in_out(clip_name: str) -> str:
     """Clear mark in/out points for a clip."""
     resolve = get_resolve()
@@ -551,7 +580,7 @@ def _get_media_pool_clip(resolve, clip_name: str):
     return None, f"Clip '{clip_name}' not found"
 
 
-@mcp.tool()
+@mcp.tool(annotations=READ_ONLY)
 def get_selected_clips() -> Dict[str, Any]:
     """Get list of currently selected clips in the media pool."""
     resolve = get_resolve()
@@ -590,7 +619,7 @@ def get_selected_clips() -> Dict[str, Any]:
         return {"error": f"Error getting selected clips: {e}"}
 
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def set_selected_clip(clip_name: str) -> str:
     """Select a clip in the media pool by name.
     
@@ -620,7 +649,7 @@ def set_selected_clip(clip_name: str) -> str:
         return f"Error selecting clip: {e}"
 
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def export_metadata_csv(file_path: str) -> str:
     """Export metadata for all clips in the media pool to a CSV file.
     
@@ -654,7 +683,7 @@ def export_metadata_csv(file_path: str) -> str:
         return f"Error exporting metadata: {e}"
 
 
-@mcp.tool()
+@mcp.tool(annotations=READ_ONLY)
 def get_clip_audio_mapping(clip_name: str) -> Dict[str, Any]:
     """Get the audio channel mapping for a media pool clip.
     
@@ -683,7 +712,7 @@ def get_clip_audio_mapping(clip_name: str) -> Dict[str, Any]:
         return {"error": f"Error getting audio mapping: {e}"}
 
 
-@mcp.tool()
+@mcp.tool(annotations=READ_ONLY)
 def get_marker_by_custom_data(clip_name: str, custom_data: str) -> Dict[str, Any]:
     """Find a marker by its custom data string.
     
@@ -714,7 +743,7 @@ def get_marker_by_custom_data(clip_name: str, custom_data: str) -> Dict[str, Any
         return {"error": f"Error finding marker: {e}"}
 
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def update_marker_custom_data(clip_name: str, frame: int, custom_data: str) -> str:
     """Update the custom data for a marker at a specific frame.
     
@@ -742,7 +771,7 @@ def update_marker_custom_data(clip_name: str, frame: int, custom_data: str) -> s
         return f"Error updating marker: {e}"
 
 
-@mcp.tool()
+@mcp.tool(annotations=READ_ONLY)
 def get_marker_custom_data(clip_name: str, frame: int) -> Dict[str, Any]:
     """Get the custom data for a marker at a specific frame.
     
@@ -771,7 +800,7 @@ def get_marker_custom_data(clip_name: str, frame: int) -> Dict[str, Any]:
         return {"error": f"Error getting marker data: {e}"}
 
 
-@mcp.tool()
+@mcp.tool(annotations=DESTRUCTIVE)
 def delete_marker_by_custom_data(clip_name: str, custom_data: str) -> str:
     """Delete a marker by its custom data string.
     
@@ -811,7 +840,7 @@ from src.api.media_operations import (
 )
 
 
-@mcp.tool()
+@mcp.tool(annotations=READ_ONLY)
 def get_third_party_metadata(clip_name: str) -> Dict[str, Any]:
     """Get third-party metadata for a media pool clip.
     
@@ -824,7 +853,7 @@ def get_third_party_metadata(clip_name: str) -> Dict[str, Any]:
     return get_third_party_metadata_impl(resolve, clip_name)
 
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def set_third_party_metadata(clip_name: str, metadata: Dict[str, str]) -> str:
     """Set third-party metadata for a media pool clip.
     
@@ -836,7 +865,7 @@ def set_third_party_metadata(clip_name: str, metadata: Dict[str, str]) -> str:
     return set_third_party_metadata_impl(resolve, clip_name, metadata)
 
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def link_full_resolution_media(clip_name: str, media_file_path: str) -> str:
     """Link full resolution media to a proxy or optimized media clip.
     
@@ -850,7 +879,7 @@ def link_full_resolution_media(clip_name: str, media_file_path: str) -> str:
     return link_full_res_impl(resolve, clip_name, media_file_path)
 
 
-@mcp.tool()
+@mcp.tool(annotations=DESTRUCTIVE)
 def replace_clip_preserve_sub_clip(clip_name: str, new_media_file_path: str) -> str:
     """Replace a clip while preserving sub-clip information.
     
@@ -864,7 +893,7 @@ def replace_clip_preserve_sub_clip(clip_name: str, new_media_file_path: str) -> 
     return replace_preserve_impl(resolve, clip_name, new_media_file_path)
 
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def monitor_growing_file(clip_name: str, enable: bool = True) -> str:
     """Enable or disable monitoring of a growing file.
     
@@ -890,7 +919,7 @@ from src.api.media_operations import (
 )
 
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def create_stereo_clip(left_clip_name: str, right_clip_name: str) -> str:
     """Create a stereo 3D clip from left and right eye clips.
     
@@ -909,7 +938,7 @@ def get_clip_mattes(clip_name: str) -> Dict[str, Any]:
     return get_clip_mattes_impl(resolve, clip_name)
 
 
-@mcp.tool()
+@mcp.tool(annotations=READ_ONLY)
 def get_clip_matte_list(clip_name: str) -> Dict[str, Any]:
     """Get list of mattes associated with a clip.
     
@@ -920,7 +949,7 @@ def get_clip_matte_list(clip_name: str) -> Dict[str, Any]:
     return get_clip_mattes_impl(resolve, clip_name)
 
 
-@mcp.tool()
+@mcp.tool(annotations=READ_ONLY)
 def get_timeline_matte_list(timeline_name: str = None) -> Dict[str, Any]:
     """Get list of mattes in a timeline.
     
@@ -931,7 +960,7 @@ def get_timeline_matte_list(timeline_name: str = None) -> Dict[str, Any]:
     return get_timeline_mattes_impl(resolve, timeline_name)
 
 
-@mcp.tool()
+@mcp.tool(annotations=DESTRUCTIVE)
 def delete_clip_mattes(clip_name: str, matte_paths: List[str] = None) -> str:
     """Delete mattes associated with a clip.
     
@@ -954,7 +983,7 @@ from src.api.media_operations import (
 )
 
 
-@mcp.tool()
+@mcp.tool(annotations=READ_ONLY)
 def get_folder_is_stale(folder_name: str = None) -> Dict[str, Any]:
     """Check if a folder's contents are stale and need refresh.
     
@@ -965,7 +994,7 @@ def get_folder_is_stale(folder_name: str = None) -> Dict[str, Any]:
     return get_folder_stale_impl(resolve, folder_name)
 
 
-@mcp.tool()
+@mcp.tool(annotations=READ_ONLY)
 def get_folder_unique_id(folder_name: str = None) -> Dict[str, Any]:
     """Get the unique ID of a media pool folder.
     
@@ -976,7 +1005,7 @@ def get_folder_unique_id(folder_name: str = None) -> Dict[str, Any]:
     return get_folder_id_impl(resolve, folder_name)
 
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def export_folder_to_drb(folder_name: str, output_path: str) -> str:
     """Export a folder as a DRB (DaVinci Resolve Bin) file.
     
@@ -995,7 +1024,7 @@ from src.api.media_operations import (
     delete_folder as delete_folder_impl,
 )
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def import_folder_from_drb(file_path: str, source_bin_name: str = None) -> str:
     """Import a folder from a DRB file.
     
@@ -1006,7 +1035,7 @@ def import_folder_from_drb(file_path: str, source_bin_name: str = None) -> str:
     resolve = get_resolve()
     return import_folder_impl(resolve, file_path, source_bin_name)
 
-@mcp.tool()
+@mcp.tool(annotations=DESTRUCTIVE)
 def delete_folder(folder_name: str) -> str:
     """Delete a folder/bin from the media pool.
     

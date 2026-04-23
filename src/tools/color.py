@@ -13,7 +13,16 @@ from src.api.color_operations import (
     apply_lut as apply_lut_impl,
     set_color_wheel_param as set_param_impl,
     add_node as add_node_impl,
-    copy_grade as copy_grade_impl
+    copy_grade as copy_grade_impl,
+    get_color_groups as get_color_groups_impl,
+    get_color_group_clips_in_timeline as get_group_clips_impl,
+    get_pre_clip_node_graph as get_pre_clip_graph_impl,
+    get_post_clip_node_graph as get_post_clip_graph_impl,
+    assign_to_color_group as assign_to_group_impl,
+    remove_from_color_group as remove_from_group_impl,
+    reset_all_node_colors as reset_node_colors_impl,
+    get_node_label as get_node_label_impl,
+    get_node_lut as get_node_lut_impl,
 )
 
 
@@ -21,28 +30,35 @@ from src.api.color_operations import (
 # Core Color Tools
 # ============================================================
 
-@mcp.tool()
+from src.utils.safety import READ_ONLY, SAFE_WRITE, DESTRUCTIVE
+@mcp.tool(annotations=READ_ONLY)
 def get_current_color_node() -> Dict[str, Any]:
     """Get information about the current node in the color page."""
     resolve = get_resolve()
+    if not resolve:
+        return {"error": "Not connected to DaVinci Resolve"}
     return get_node_impl(resolve)
 
 
-@mcp.tool()
+@mcp.tool(annotations=READ_ONLY)
 def get_color_wheel_params(node_index: int = None) -> Dict[str, Any]:
     """Get color wheel parameters for a specific node."""
     resolve = get_resolve()
+    if not resolve:
+        return {"error": "Not connected to DaVinci Resolve"}
     return get_wheels_impl(resolve, node_index)
 
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def apply_lut(lut_path: str, node_index: int = None) -> str:
     """Apply a LUT to a node."""
     resolve = get_resolve()
+    if not resolve:
+        return "Error: Not connected to DaVinci Resolve"
     return apply_lut_impl(resolve, lut_path, node_index)
 
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def set_color_wheel_param(wheel: str, param: str, value: float, node_index: int = None) -> str:
     """Set a color wheel parameter for a node.
     
@@ -53,21 +69,27 @@ def set_color_wheel_param(wheel: str, param: str, value: float, node_index: int 
         node_index: Optional node index (uses current if not specified)
     """
     resolve = get_resolve()
+    if not resolve:
+        return "Error: Not connected to DaVinci Resolve"
     return set_param_impl(resolve, wheel, param, value, node_index)
 
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def add_node(node_type: str = "serial", label: str = None) -> str:
     """Add a new node to the current grade ('serial', 'parallel', or 'layer')."""
     resolve = get_resolve()
+    if not resolve:
+        return "Error: Not connected to DaVinci Resolve"
     return add_node_impl(resolve, node_type, label)
 
 
-@mcp.tool()
-def copy_grade_tool(source_clip_name: str = None, target_clip_name: str = None, 
+@mcp.tool(annotations=SAFE_WRITE)
+def copy_grade_tool(source_clip_name: str = None, target_clip_name: str = None,
                     mode: str = "full") -> str:
     """Copy a grade from one clip to another."""
     resolve = get_resolve()
+    if not resolve:
+        return "Error: Not connected to DaVinci Resolve"
     return copy_grade_impl(resolve, source_clip_name, target_clip_name, mode)
 
 
@@ -75,7 +97,7 @@ def copy_grade_tool(source_clip_name: str = None, target_clip_name: str = None,
 # Phase 6: Extended Node Graph Operations
 # ============================================================
 
-@mcp.tool()
+@mcp.tool(annotations=READ_ONLY)
 def get_node_graph_info(clip_name: str = None) -> Dict[str, Any]:
     """Get node graph information for a clip."""
     resolve = get_resolve()
@@ -135,7 +157,7 @@ def get_node_graph_info(clip_name: str = None) -> Dict[str, Any]:
         return {"error": f"Error: {e}"}
 
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def set_node_lut(node_index: int, lut_path: str) -> str:
     """Set LUT on a specific node by index."""
     resolve = get_resolve()
@@ -165,7 +187,7 @@ def set_node_lut(node_index: int, lut_path: str) -> str:
         return f"Error: {e}"
 
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def set_node_enabled(node_index: int, enabled: bool) -> str:
     """Enable or disable a node by index."""
     resolve = get_resolve()
@@ -200,7 +222,7 @@ def set_node_enabled(node_index: int, enabled: bool) -> str:
 # Phase 6: Gallery Operations
 # ============================================================
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def grab_still() -> str:
     """Grab a still from the current clip."""
     resolve = get_resolve()
@@ -223,7 +245,7 @@ def grab_still() -> str:
         return f"Error: {e}"
 
 
-@mcp.tool()
+@mcp.tool(annotations=READ_ONLY)
 def get_gallery_albums() -> Dict[str, Any]:
     """Get all gallery albums (stills and power grades)."""
     resolve = get_resolve()
@@ -259,7 +281,7 @@ def get_gallery_albums() -> Dict[str, Any]:
         return {"error": f"Error: {e}"}
 
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def create_still_album(album_name: str = None) -> str:
     """Create a new still album in the gallery."""
     resolve = get_resolve()
@@ -287,7 +309,7 @@ def create_still_album(album_name: str = None) -> str:
         return f"Error: {e}"
 
 
-@mcp.tool()
+@mcp.tool(annotations=READ_ONLY)
 def get_stills_in_album(album_name: str = None) -> Dict[str, Any]:
     """Get stills in a gallery album."""
     resolve = get_resolve()
@@ -334,7 +356,7 @@ def get_stills_in_album(album_name: str = None) -> Dict[str, Any]:
         return {"error": f"Error: {e}"}
 
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def export_stills(folder_path: str, file_prefix: str = "still", 
                   format: str = "dpx", album_name: str = None) -> str:
     """Export stills from an album.
@@ -384,7 +406,7 @@ def export_stills(folder_path: str, file_prefix: str = "still",
         return f"Error: {e}"
 
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def import_stills(file_paths: List[str], album_name: str = None) -> str:
     """Import stills into an album.
     
@@ -431,37 +453,7 @@ def import_stills(file_paths: List[str], album_name: str = None) -> str:
 # Phase 2.4: Color Page Extensions
 # ============================================================
 
-@mcp.tool()
-def get_color_groups_list() -> Dict[str, Any]:
-    """Get list of all color groups in the project."""
-    resolve = get_resolve()
-    if not resolve:
-        return {"error": "Not connected"}
-    
-    pm = resolve.GetProjectManager()
-    project = pm.GetCurrentProject() if pm else None
-    
-    if not project:
-        return {"error": "No project open"}
-    
-    try:
-        groups = project.GetColorGroupsList()
-        if groups:
-            result = []
-            for group in groups:
-                result.append({
-                    "name": group.GetName() if hasattr(group, 'GetName') else str(group),
-                    "id": group.GetID() if hasattr(group, 'GetID') else None
-                })
-            return {"count": len(result), "groups": result}
-        return {"count": 0, "groups": []}
-    except AttributeError:
-        return {"error": "GetColorGroupsList not available"}
-    except Exception as e:
-        return {"error": f"Error: {e}"}
-
-
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def add_color_group(group_name: str) -> str:
     """Add a new color group to the project.
     
@@ -489,7 +481,7 @@ def add_color_group(group_name: str) -> str:
         return f"Error: {e}"
 
 
-@mcp.tool()
+@mcp.tool(annotations=DESTRUCTIVE)
 def delete_color_group(group_name: str) -> str:
     """Delete a color group from the project.
     
@@ -528,7 +520,7 @@ def delete_color_group(group_name: str) -> str:
         return f"Error: {e}"
 
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def apply_grade_from_drx(clip_name: str, drx_path: str, 
                           grade_mode: int = 0) -> str:
     """Apply a grade from a DRX file to a clip.
@@ -572,7 +564,7 @@ def apply_grade_from_drx(clip_name: str, drx_path: str,
         return f"Error: {e}"
 
 
-@mcp.tool()
+@mcp.tool(annotations=READ_ONLY)
 def get_tools_in_node(node_index: int) -> Dict[str, Any]:
     """Get the tools/effects applied in a specific node.
     
@@ -614,25 +606,17 @@ def get_tools_in_node(node_index: int) -> Dict[str, Any]:
 # Phase 4.7: ColorGroup Extensions
 # ============================================================
 
-from src.api.color_operations import (
-    get_color_groups as get_color_groups_impl,
-    get_color_group_clips_in_timeline as get_group_clips_impl,
-    get_pre_clip_node_graph as get_pre_clip_graph_impl,
-    get_post_clip_node_graph as get_post_clip_graph_impl,
-    assign_to_color_group as assign_to_group_impl,
-    remove_from_color_group as remove_from_group_impl,
-    reset_all_node_colors as reset_node_colors_impl,
-)
 
-
-@mcp.tool()
+@mcp.tool(annotations=READ_ONLY)
 def get_color_groups() -> Dict[str, Any]:
     """Get all color groups in the current timeline."""
     resolve = get_resolve()
+    if not resolve:
+        return {"error": "Not connected to DaVinci Resolve"}
     return get_color_groups_impl(resolve)
 
 
-@mcp.tool()
+@mcp.tool(annotations=READ_ONLY)
 def get_color_group_clips_in_timeline(group_index: int,
                                        timeline_name: str = None) -> Dict[str, Any]:
     """Get clips belonging to a specific color group.
@@ -642,10 +626,12 @@ def get_color_group_clips_in_timeline(group_index: int,
         timeline_name: Optional timeline name, uses current if not specified
     """
     resolve = get_resolve()
+    if not resolve:
+        return {"error": "Not connected to DaVinci Resolve"}
     return get_group_clips_impl(resolve, group_index, timeline_name)
 
 
-@mcp.tool()
+@mcp.tool(annotations=READ_ONLY)
 def get_pre_clip_node_graph(group_index: int) -> Dict[str, Any]:
     """Get the pre-clip node graph for a color group.
     
@@ -655,10 +641,12 @@ def get_pre_clip_node_graph(group_index: int) -> Dict[str, Any]:
         group_index: Index of the color group (0-based)
     """
     resolve = get_resolve()
+    if not resolve:
+        return {"error": "Not connected to DaVinci Resolve"}
     return get_pre_clip_graph_impl(resolve, group_index)
 
 
-@mcp.tool()
+@mcp.tool(annotations=READ_ONLY)
 def get_post_clip_node_graph(group_index: int) -> Dict[str, Any]:
     """Get the post-clip node graph for a color group.
     
@@ -668,10 +656,12 @@ def get_post_clip_node_graph(group_index: int) -> Dict[str, Any]:
         group_index: Index of the color group (0-based)
     """
     resolve = get_resolve()
+    if not resolve:
+        return {"error": "Not connected to DaVinci Resolve"}
     return get_post_clip_graph_impl(resolve, group_index)
 
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def assign_to_color_group(clip_name: str, group_index: int,
                           timeline_name: str = None) -> str:
     """Assign a timeline clip to a color group.
@@ -682,10 +672,12 @@ def assign_to_color_group(clip_name: str, group_index: int,
         timeline_name: Optional timeline name, uses current if not specified
     """
     resolve = get_resolve()
+    if not resolve:
+        return "Error: Not connected to DaVinci Resolve"
     return assign_to_group_impl(resolve, clip_name, group_index, timeline_name)
 
 
-@mcp.tool()
+@mcp.tool(annotations=DESTRUCTIVE)
 def remove_from_color_group(clip_name: str, timeline_name: str = None) -> str:
     """Remove a clip from its color group.
     
@@ -694,10 +686,12 @@ def remove_from_color_group(clip_name: str, timeline_name: str = None) -> str:
         timeline_name: Optional timeline name, uses current if not specified
     """
     resolve = get_resolve()
+    if not resolve:
+        return "Error: Not connected to DaVinci Resolve"
     return remove_from_group_impl(resolve, clip_name, timeline_name)
 
 
-@mcp.tool()
+@mcp.tool(annotations=DESTRUCTIVE)
 def reset_all_node_colors(clip_name: str, timeline_name: str = None) -> str:
     """Reset all node colors for a timeline clip.
     
@@ -708,6 +702,8 @@ def reset_all_node_colors(clip_name: str, timeline_name: str = None) -> str:
         timeline_name: Optional timeline name, uses current if not specified
     """
     resolve = get_resolve()
+    if not resolve:
+        return "Error: Not connected to DaVinci Resolve"
     return reset_node_colors_impl(resolve, clip_name, timeline_name)
 
 
@@ -722,7 +718,7 @@ from src.api.gallery_operations import (
 )
 
 
-@mcp.tool()
+@mcp.tool(annotations=DESTRUCTIVE)
 def delete_stills_from_album(album_name: str = None,
                               still_labels: List[str] = None) -> str:
     """Delete stills from a gallery album.
@@ -732,10 +728,12 @@ def delete_stills_from_album(album_name: str = None,
         still_labels: Optional list of labels to delete; if None, deletes all stills
     """
     resolve = get_resolve()
+    if not resolve:
+        return "Error: Not connected to DaVinci Resolve"
     return delete_stills_impl(resolve, album_name, still_labels)
 
 
-@mcp.tool()
+@mcp.tool(annotations=READ_ONLY)
 def get_still_label(album_name: str = None, still_index: int = 0) -> Dict[str, Any]:
     """Get the label of a still in an album.
     
@@ -744,10 +742,12 @@ def get_still_label(album_name: str = None, still_index: int = 0) -> Dict[str, A
         still_index: Index of the still (0-based)
     """
     resolve = get_resolve()
+    if not resolve:
+        return {"error": "Not connected to DaVinci Resolve"}
     return get_still_label_impl(resolve, album_name, still_index)
 
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def set_still_label(label: str, album_name: str = None,
                     still_index: int = 0) -> str:
     """Set the label of a still in an album.
@@ -758,6 +758,8 @@ def set_still_label(label: str, album_name: str = None,
         still_index: Index of the still (0-based)
     """
     resolve = get_resolve()
+    if not resolve:
+        return "Error: Not connected to DaVinci Resolve"
     return set_still_label_impl(resolve, label, album_name, still_index)
 
 
@@ -771,23 +773,27 @@ from src.api.gallery_operations import (
 )
 
 
-@mcp.tool()
+@mcp.tool(annotations=READ_ONLY)
 def get_gallery_powergrade_albums() -> List[Dict[str, Any]]:
     """Get all PowerGrade albums in the gallery.
     
     PowerGrade albums contain saved color grades that can be shared across projects.
     """
     resolve = get_resolve()
+    if not resolve:
+        return [{"error": "Not connected to DaVinci Resolve"}]
     return get_powergrade_albums_impl(resolve)
 
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def create_gallery_powergrade_album() -> Dict[str, Any]:
     """Create a new PowerGrade album in the gallery.
     
     PowerGrade albums are used to store and share color grades across projects.
     """
     resolve = get_resolve()
+    if not resolve:
+        return {"error": "Not connected to DaVinci Resolve"}
     return create_powergrade_album_impl(resolve)
 
 
@@ -795,7 +801,7 @@ def create_gallery_powergrade_album() -> Dict[str, Any]:
 # Full Coverage: Graph Node Cache Functions
 # ============================================================
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def set_node_cache_mode(clip_name: str, node_index: int, cache_value: str,
                          timeline_name: str = None) -> str:
     """Set cache mode for a node in a clip's node graph.
@@ -844,7 +850,7 @@ def set_node_cache_mode(clip_name: str, node_index: int, cache_value: str,
     return f"Error: Clip not found: {clip_name}"
 
 
-@mcp.tool()
+@mcp.tool(annotations=READ_ONLY)
 def get_node_cache_mode(clip_name: str, node_index: int,
                          timeline_name: str = None) -> Dict[str, Any]:
     """Get cache mode for a node in a clip's node graph.
@@ -894,7 +900,7 @@ def get_node_cache_mode(clip_name: str, node_index: int,
     return {"error": f"Clip not found: {clip_name}"}
 
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def apply_arri_cdl_lut(clip_name: str, timeline_name: str = None) -> str:
     """Apply ARRI CDL and LUT to a clip's node graph.
     
@@ -940,7 +946,7 @@ def apply_arri_cdl_lut(clip_name: str, timeline_name: str = None) -> str:
     return f"Error: Clip not found: {clip_name}"
 
 
-@mcp.tool()
+@mcp.tool(annotations=DESTRUCTIVE)
 def reset_all_grades(clip_name: str, timeline_name: str = None) -> str:
     """Reset all grades in a clip's node graph.
     
@@ -996,7 +1002,7 @@ from src.api.gallery_operations import (
     set_still_label as set_still_label_impl,
 )
 
-@mcp.tool()
+@mcp.tool(annotations=DESTRUCTIVE)
 def delete_gallery_stills(album_name: str = None, still_labels: List[str] = None) -> str:
     """Delete stills from a gallery album.
     
@@ -1006,9 +1012,11 @@ def delete_gallery_stills(album_name: str = None, still_labels: List[str] = None
                      If None, deletes ALL stills in the album (Use with caution).
     """
     resolve = get_resolve()
+    if not resolve:
+        return "Error: Not connected to DaVinci Resolve"
     return delete_stills_impl(resolve, album_name, still_labels)
 
-@mcp.tool()
+@mcp.tool(annotations=READ_ONLY)
 def get_gallery_still_label(still_index: int, album_name: str = None) -> Dict[str, Any]:
     """Get the label of a specific still in a gallery album.
     
@@ -1017,9 +1025,11 @@ def get_gallery_still_label(still_index: int, album_name: str = None) -> Dict[st
         album_name: Name of the album (uses current if not specified)
     """
     resolve = get_resolve()
+    if not resolve:
+        return {"error": "Not connected to DaVinci Resolve"}
     return get_still_label_impl(resolve, album_name, still_index)
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def set_gallery_still_label(label: str, still_index: int, album_name: str = None) -> str:
     """Set the label of a specific still in a gallery album.
     
@@ -1029,6 +1039,8 @@ def set_gallery_still_label(label: str, still_index: int, album_name: str = None
         album_name: Name of the album (uses current if not specified)
     """
     resolve = get_resolve()
+    if not resolve:
+        return "Error: Not connected to DaVinci Resolve"
     return set_still_label_impl(resolve, label, album_name, still_index)
 
 
@@ -1036,12 +1048,7 @@ def set_gallery_still_label(label: str, still_index: int, album_name: str = None
 # Phase 4.9: Graph Extensions
 # ============================================================
 
-from src.api.color_operations import (
-    get_node_label as get_node_label_impl,
-    get_node_lut as get_node_lut_impl,
-)
-
-@mcp.tool()
+@mcp.tool(annotations=READ_ONLY)
 def get_node_label(node_index: int) -> Dict[str, Any]:
     """Get the label of a specific node in the current grade.
     
@@ -1049,9 +1056,11 @@ def get_node_label(node_index: int) -> Dict[str, Any]:
         node_index: Index of the node (1-based)
     """
     resolve = get_resolve()
+    if not resolve:
+        return {"error": "Not connected to DaVinci Resolve"}
     return get_node_label_impl(resolve, node_index)
 
-@mcp.tool()
+@mcp.tool(annotations=READ_ONLY)
 def get_node_lut(node_index: int) -> Dict[str, Any]:
     """Get the LUT applied to a specific node in the current grade.
     
@@ -1059,5 +1068,7 @@ def get_node_lut(node_index: int) -> Dict[str, Any]:
         node_index: Index of the node (1-based)
     """
     resolve = get_resolve()
+    if not resolve:
+        return {"error": "Not connected to DaVinci Resolve"}
     return get_node_lut_impl(resolve, node_index)
 

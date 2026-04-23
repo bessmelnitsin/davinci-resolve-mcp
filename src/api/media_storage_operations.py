@@ -169,7 +169,7 @@ def add_items_to_media_pool(resolve, items: List[str]) -> Dict[str, Any]:
                         "id": clip.GetUniqueId() if hasattr(clip, 'GetUniqueId') else None
                     }
                     clip_info.append(info)
-                except:
+                except Exception:
                     clip_info.append({"name": "Unknown"})
             
             return {
@@ -215,7 +215,7 @@ def add_items_with_info(resolve, items_info: List[Dict[str, Any]]) -> Dict[str, 
                         "id": clip.GetUniqueId() if hasattr(clip, 'GetUniqueId') else None
                     }
                     clip_info.append(info)
-                except:
+                except Exception:
                     clip_info.append({"name": "Unknown"})
             
             return {
@@ -296,7 +296,7 @@ def add_timeline_mattes(resolve, matte_paths: List[str]) -> Dict[str, Any]:
                         "id": item.GetUniqueId() if hasattr(item, 'GetUniqueId') else None
                     }
                     item_info.append(info)
-                except:
+                except Exception:
                     item_info.append({"name": "Unknown"})
             
             return {

@@ -23,7 +23,8 @@ from src.api.media_storage_operations import (
 # MediaStorage Browse Tools
 # ============================================================
 
-@mcp.tool()
+from src.utils.safety import READ_ONLY, SAFE_WRITE, DESTRUCTIVE
+@mcp.tool(annotations=READ_ONLY)
 def list_mounted_volumes() -> str:
     """List all mounted volumes displayed in DaVinci Resolve's Media Storage.
     
@@ -47,7 +48,7 @@ def list_mounted_volumes() -> str:
     return "\n".join(lines)
 
 
-@mcp.tool()
+@mcp.tool(annotations=READ_ONLY)
 def list_storage_folders(folder_path: str) -> str:
     """List subfolders in a Media Storage folder.
     
@@ -72,7 +73,7 @@ def list_storage_folders(folder_path: str) -> str:
     return "\n".join(lines)
 
 
-@mcp.tool()
+@mcp.tool(annotations=READ_ONLY)
 def list_storage_files(folder_path: str) -> str:
     """List media files in a Media Storage folder.
     
@@ -103,7 +104,7 @@ def list_storage_files(folder_path: str) -> str:
     return "\n".join(lines)
 
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def reveal_in_storage(path: str) -> str:
     """Reveal a file or folder in DaVinci Resolve's Media Storage browser.
     
@@ -129,7 +130,7 @@ def reveal_in_storage(path: str) -> str:
 # Add to Media Pool Tools
 # ============================================================
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def add_from_storage(file_paths: List[str]) -> str:
     """Add files from Media Storage to current Media Pool folder.
     
@@ -166,7 +167,7 @@ def add_from_storage(file_paths: List[str]) -> str:
     return result.get("message", "Failed to add items")
 
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def add_from_storage_with_range(media_path: str, start_frame: int, 
                                  end_frame: int) -> str:
     """Add a media file with specific in/out points to Media Pool.
@@ -201,7 +202,7 @@ def add_from_storage_with_range(media_path: str, start_frame: int,
     return result.get("message", "Failed to add item")
 
 
-@mcp.tool()
+@mcp.tool(annotations=SAFE_WRITE)
 def add_timeline_mattes(matte_paths: List[str]) -> str:
     """Add media files as timeline mattes to current Media Pool folder.
     
